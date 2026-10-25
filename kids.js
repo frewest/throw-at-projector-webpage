@@ -1,10 +1,14 @@
 /*
  * Läge "Kids" – streckgubbar som hittar på bus.
  *
- * Huvudpersonen (figur 0) har långt ljust hår, glugg mellan tänderna,
- * leopardkjol, rosa ryggsäck och rosa skor. Kompisarna har andra frisyrer
- * och färger. Figurerna är ett skelett med leder som ritas direkt varje
- * bild, så att samma figur kan gå, smyga, hjula, ramla, sitta och sova.
+ * Fyra barn, lika långa som sin ålder:
+ *   Ida (6)    – långt ljust hår med bena åt sidan, glugg mellan tänderna,
+ *                ljus t-shirt, leopardkjol, rosa ryggsäck och rosa skor
+ *   Althea (5) – rosa keps med Stitch, ljust hår, rosa tröja, jeans, vita sockor
+ *   Vienna (7) – långt ljust hår med mittbena, ljusrosa klänning, barfota
+ *   Nils (3)   – kort ljust hår, utstående öron, grå tröja, beige byxor, barfota
+ * Figurerna är ett skelett med leder som ritas direkt varje bild, så att
+ * samma figur kan gå, smyga, hjula, ramla, sitta och sova.
  *
  * Bus på egen hand: tittut, räcka ut tungan, blåsa ballong som smäller,
  * såpbubblor, hjula, snurra tills man blir yr, knacka på skärmen, dansa
@@ -23,7 +27,7 @@
   'use strict';
 
   // ---------------------------------------------------------------- konstanter
-  var MAX = 12;
+  var MAX = 4;
   var BASE_H = 250;            // figurens höjd i px vid size=1 och 1080 px kortsida
   var WALK = 1.25;             // gånghastighet i figurhöjder per sekund
   var TWO_PI = Math.PI * 2;
@@ -34,25 +38,34 @@
   var THIGH = 0.22, SHIN = 0.21, UPPER = 0.16, FORE = 0.15;
   var FONT = '"Comic Sans MS", "Chalkboard SE", "Comic Neue", sans-serif';
 
+  // h = längd relativt Ida (ungefär 96, 110, 117 och 123 cm vid 3, 5, 6 och 7 år).
   var LOOKS = [
-    { style: 'long', hair: '#dcb66c', hairDark: '#b38a43', skin: '#f6d3bd',
-      bottom: 'leopard', shoes: '#f5a8c5', pack: '#ef8db4', gap: true, bus: 0.16 },
-    { style: 'short', hair: '#6b4425', hairDark: '#4a2e18', skin: '#f1c7a5',
-      bottom: 'shorts', cloth: '#3d6fd1', shoes: '#2e3a8c', bus: 0.07 },
-    { style: 'pigtails', hair: '#2b211c', hairDark: '#000', skin: '#c68e62', tie: '#ff5f8f',
-      bottom: 'skirt', cloth: '#9b59d0', shoes: '#f2c230', bus: 0.07 },
-    { style: 'curly', hair: '#c4532a', hairDark: '#8e3518', skin: '#f3d0b5',
-      bottom: 'shorts', cloth: '#3aa55a', shoes: '#e8562f', bus: 0.07 },
-    { style: 'cap', hair: '#3b2a20', hairDark: '#000', skin: '#8d5a3b', cap: '#e23d3d',
-      bottom: 'shorts', cloth: '#f0a020', shoes: '#444', bus: 0.07 },
-    { style: 'spiky', hair: '#e8c35a', hairDark: '#b8912a', skin: '#f1c7a5',
-      bottom: 'shorts', cloth: '#e04a8a', shoes: '#2aa3c9', bus: 0.07 }
+    { name: 'Ida', age: 6, h: 1, style: 'long', part: 0.22,
+      hair: '#dcb66c', hairDark: '#b38a43', skin: '#f6d3bd', gap: true,
+      shirt: '#f3ecd8', sleeves: 'short', bottom: 'leopard', shoes: '#f5a8c5', pack: '#ef8db4',
+      bus: 0.12, sleep: 0.004 },
+    { name: 'Althea', age: 5, h: 0.94, style: 'cap',
+      hair: '#e3c27e', hairDark: '#b8964f', skin: '#f6d5c3', cap: '#f5a9c2', capDark: '#e07a9c',
+      shirt: '#f7c8d3', sleeves: 'long', bottom: 'jeans', cloth: '#50709f', shoes: '#fbfbfb',
+      bus: 0.1, sleep: 0.008 },
+    { name: 'Vienna', age: 7, h: 1.05, style: 'long', part: 0, longer: true, earring: true,
+      hair: '#e6c77f', hairDark: '#bf9c52', skin: '#f4d0b8',
+      shirt: '#f8dcdc', bottom: 'dress', cloth: '#f8dcdc', print: '#6f9ad6', barefoot: true,
+      bus: 0.1, sleep: 0.006 },
+    { name: 'Nils', age: 3, h: 0.82, style: 'short', ears: true,
+      hair: '#d9ba7c', hairDark: '#ab8a4c', skin: '#f6cfb8',
+      shirt: '#c9cbcf', sleeves: 'long', bottom: 'pants', cloth: '#c9a46e', barefoot: true,
+      bus: 0.09, sleep: 0.018 }
   ];
 
   // fläckar på leopardkjolen: x, y, radie
   var SPOTS = [[-0.05, 0.01, 0.018], [0.03, 0.0, 0.016], [-0.08, 0.07, 0.02], [0.0, 0.06, 0.019],
     [0.08, 0.07, 0.018], [-0.04, 0.115, 0.017], [0.05, 0.12, 0.02], [-0.11, 0.125, 0.014],
     [0.11, 0.125, 0.014]];
+
+  // tryck på Viennas klänning
+  var PRINT = [[-0.06, 0.03], [0.05, 0.06], [-0.1, 0.12], [0.02, 0.15], [0.12, 0.16], [-0.04, 0.2],
+    [0.08, 0.22]];
 
   var BALLOONS = ['#ff4d6d', '#4dabf7', '#ffd43b', '#69db7c', '#b197fc', '#ff922b'];
   var CONFETTI = ['#ff4d6d', '#4dabf7', '#ffd43b', '#69db7c', '#b197fc', '#ff922b', '#f783ac'];
@@ -98,7 +111,7 @@
   // ---------------------------------------------------------------- figurer
   function makeFig(i) {
     return {
-      i: i, look: LOOKS[i === 0 ? 0 : 1 + (i - 1) % (LOOKS.length - 1)], alive: true,
+      i: i, look: LOOKS[i % LOOKS.length], alive: true,
       x: 0, y: 0, z: 0, vz: 0, face: 1, L: baseL, spd: rand(0.85, 1.15), phase: 0,
       gx: 0, gy: 0, a: 'walk', t: 0, dur: 0, k1: 0, k2: 0, k3: 0, emit: 0, ang: 0,
       target: null, by: null, next: null, last: null, prop: null, cool: rand(1, 4),
@@ -121,7 +134,7 @@
   function place(f) {
     f.x = rand(xMin, xMax);
     f.y = rand(yTop, yBot);
-    f.L = depthL(f.y);
+    f.L = depthL(f.y) * f.look.h;
     f.face = Math.random() < 0.5 ? 1 : -1;
     setAct(f, 'walk');
   }
@@ -182,7 +195,7 @@
     if (Math.random() < (forced ? 2 : f.look.bus) * dt) {
       f.cool = forced ? rand(1, 2) : rand(4, 9);
       prank(f);
-    } else if ((!forced || forced === 'mustache') && Math.random() < (f.i ? 0.012 : 0.004) * dt) {
+    } else if ((!forced || forced === 'mustache') && Math.random() < f.look.sleep * dt) {
       f.cool = rand(4, 9);
       setAct(f, 'sleep');
     }
@@ -267,8 +280,8 @@
       var g = figs[i];
       if (g === f || !free(g) || Math.abs(g.x - f.x) > 4 * f.L) continue;
       setAct(g, 'laugh');
-      say(g, f.beardKind ? pick(['Haha, glasögon!', 'Snygga glasögon!'])
-        : pick(['Haha, mustasch!', 'Snygg mustasch!', 'Hihi, du har mustasch!']), 2);
+      say(g, f.beardKind ? pick(['Haha, glasögon!', 'Snygga glasögon, ' + f.look.name + '!'])
+        : pick(['Haha, mustasch!', f.look.name + ' har mustasch!', 'Hihi, du har mustasch!']), 2);
     }
   }
 
@@ -619,7 +632,10 @@
 
   ACT.wave = {
     dur: 2.4,
-    start: function (f) { say(f, pick(['Hej!', 'Hej hej!', 'Hallå!', 'Titta här!', 'Hej på er!'])); },
+    start: function (f) {
+      say(f, pick(['Hej!', 'Hej hej!', 'Titta här!', 'Jag heter ' + f.look.name + '!',
+        'Jag är ' + f.look.age + ' år!']));
+    },
     pose: function (f, p) {
       p.af1 = 2.6; p.af2 = 0.45 * Math.sin(f.t * 11);
       p.tilt = 0.1;
@@ -658,7 +674,10 @@
         pop('BU!', f.hx + f.face * f.L * 0.2, f.hy - f.L * 0.2, f.L * 0.32, '#ff6b6b');
         if (ok(g, f)) { g.face = f.x > g.x ? 1 : -1; setAct(g, 'scared'); }
       }
-      if (f.t > 1.0 && !f.k2) { f.k2 = 1; say(f, pick(['Hihi, lurad!', 'Hahaha!', 'Där fick du!'])); }
+      if (f.t > 1.0 && !f.k2) {
+        f.k2 = 1;
+        say(f, pick(['Hihi, lurad!', 'Hahaha!', g ? 'Där fick du, ' + g.look.name + '!' : 'Där fick du!']));
+      }
     },
     pose: function (f, p) {
       if (f.t < 0.35) {
@@ -683,7 +702,7 @@
     end: function (f) {
       if (Math.random() < 0.6) {
         setAct(f, 'laugh');
-        say(f, pick(['Du skrämde mig!', 'Vad läskigt!', 'Igen!']));
+        say(f, pick(['Du skrämde mig!', 'Vad läskigt!', 'Igen!', f.by ? 'Lurade du mig, ' + f.by.look.name + '?' : 'Igen!']));
       } else {
         finish(f);
       }
@@ -706,7 +725,7 @@
     start: function (f) {
       var g = f.target;
       if (ok(g, f)) { setAct(g, 'giggle'); g.dur = 3.1; }
-      say(f, pick(['Kittel kittel!', 'Killekill!', 'Kittelmonstret!']));
+      say(f, pick(['Kittel kittel!', 'Killekill!', 'Kittelmonstret!', g ? 'Killekill, ' + g.look.name + '!' : 'Killekill!']));
     },
     pose: function (f, p) {
       var w = Math.sin(f.t * 26) * 0.04;
@@ -832,7 +851,10 @@
 
   ACT.cushion = {
     dur: 3.4,
-    start: function (f) { say(f, pick(['Sätt dig, du!', 'Vill du sitta?', 'Varsågod, en kudde!']), 1.4); },
+    start: function (f) {
+      var n = f.target ? f.target.look.name : 'du';
+      say(f, pick(['Sätt dig, ' + n + '!', 'Vill du sitta, ' + n + '?', 'Varsågod, en kudde!']), 1.4);
+    },
     update: function (f) {
       var g = f.target;
       if (f.t > 0.7 && !f.k1) {
@@ -1069,7 +1091,7 @@
   // ---------------------------------------------------------------- uppdatering
   function updateFig(f, dt) {
     var A = ACT[f.a], name = f.a;
-    f.L = depthL(f.y);
+    f.L = depthL(f.y) * f.look.h;
     f.t += dt;
     if (f.textT > 0) f.textT -= dt;
     if (f.starsT > 0) f.starsT -= dt;
@@ -1171,10 +1193,11 @@
     g.stroke();
   }
 
-  function shoe(g, o, col) {
+  function shoe(g, o, k) {
     g.beginPath();
-    g.ellipse(o[2] + 0.025, o[3] - 0.004, 0.05, 0.024, 0, 0, TWO_PI);
-    g.fillStyle = col;
+    if (k.barefoot) g.ellipse(o[2] + 0.02, o[3] - 0.006, 0.038, 0.017, 0, 0, TWO_PI);
+    else g.ellipse(o[2] + 0.025, o[3] - 0.004, 0.05, 0.024, 0, 0, TWO_PI);
+    g.fillStyle = k.barefoot ? k.skin : k.shoes;
     g.fill();
     g.lineWidth = 0.012;
     g.stroke();
@@ -1215,57 +1238,86 @@
     g.closePath();
   }
 
+  // Tjock tygbit med kontur längs en polyline [x0, y0, x1, y1, ...].
+  function cloth(g, pts, w, col) {
+    g.beginPath();
+    g.moveTo(pts[0], pts[1]);
+    for (var i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]);
+    g.strokeStyle = INK;
+    g.lineWidth = w + 0.024;
+    g.stroke();
+    g.strokeStyle = col;
+    g.lineWidth = w;
+    g.stroke();
+    g.strokeStyle = INK;
+    g.lineWidth = LW;
+  }
+
+  function skirtPath(g, len, flare) {
+    g.beginPath();
+    g.moveTo(-0.07, -0.025);
+    g.lineTo(0.07, -0.025);
+    g.lineTo(flare, len);
+    g.quadraticCurveTo(0, len + 0.025, -flare, len);
+    g.closePath();
+  }
+
+  // Ben med (lång)byxor: tyget går nästan ner till foten.
+  function leg(g, f, o) {
+    var k = f.look;
+    stroke3(g, 0, 0, o[0], o[1], o[2], o[3]);
+    if (k.bottom === 'jeans' || k.bottom === 'pants') {
+      cloth(g, [0, -0.01, o[0], o[1], lerp(o[0], o[2], 0.82), lerp(o[1], o[3], 0.82)], 0.06, k.cloth);
+    }
+    shoe(g, o, k);
+  }
+
+  // Arm med ärm: kort ärm en bit ner på överarmen, lång ärm nästan till handen.
+  function arm2(g, f, o) {
+    var j = f.j, k = f.look;
+    stroke3(g, j.sx, j.sy, o[0], o[1], o[2], o[3]);
+    if (k.sleeves === 'long') {
+      cloth(g, [j.sx, j.sy, o[0], o[1], lerp(o[0], o[2], 0.75), lerp(o[1], o[3], 0.75)], 0.05, k.shirt);
+    } else if (k.sleeves === 'short') {
+      cloth(g, [j.sx, j.sy, lerp(j.sx, o[0], 0.45), lerp(j.sy, o[1], 0.45)], 0.055, k.shirt);
+    }
+  }
+
   function lowerClothes(g, f) {
-    var k = f.look, j = f.j;
+    var k = f.look, i, s;
     g.lineWidth = 0.012;
-    if (k.bottom === 'leopard' || k.bottom === 'skirt') {
-      g.beginPath();
-      g.moveTo(-0.07, -0.025);
-      g.lineTo(0.07, -0.025);
-      g.lineTo(0.125, 0.14);
-      g.quadraticCurveTo(0, 0.165, -0.125, 0.14);
-      g.closePath();
-      g.fillStyle = k.bottom === 'leopard' ? '#ecdcc6' : k.cloth;
+    if (k.bottom === 'leopard') {
+      skirtPath(g, 0.14, 0.125);
+      g.fillStyle = '#ecdcc6';
       g.fill();
-      if (k.bottom === 'leopard') {
-        g.save();
-        g.clip();
-        for (var i = 0; i < SPOTS.length; i++) {
-          var s = SPOTS[i];
-          g.beginPath();
-          g.ellipse(s[0], s[1], s[2] * 1.2, s[2], 0.3, 0, TWO_PI);
-          g.fillStyle = '#4b3427';
-          g.fill();
-          g.beginPath();
-          g.ellipse(s[0], s[1], s[2] * 0.6, s[2] * 0.5, 0.3, 0, TWO_PI);
-          g.fillStyle = '#b58a5e';
-          g.fill();
-        }
-        g.restore();
+      g.save();
+      g.clip();
+      for (i = 0; i < SPOTS.length; i++) {
+        s = SPOTS[i];
         g.beginPath();
-        g.moveTo(-0.07, -0.025);
-        g.lineTo(0.07, -0.025);
-        g.lineTo(0.125, 0.14);
-        g.quadraticCurveTo(0, 0.165, -0.125, 0.14);
-        g.closePath();
+        g.ellipse(s[0], s[1], s[2] * 1.2, s[2], 0.3, 0, TWO_PI);
+        g.fillStyle = '#4b3427';
+        g.fill();
+        g.beginPath();
+        g.ellipse(s[0], s[1], s[2] * 0.6, s[2] * 0.5, 0.3, 0, TWO_PI);
+        g.fillStyle = '#b58a5e';
+        g.fill();
       }
+      g.restore();
+      skirtPath(g, 0.14, 0.125);
       g.stroke();
-    } else {
-      // shorts: korta tjocka stumpar längs låren
-      for (var n = 0; n < 2; n++) {
-        var o = n ? j.lf : j.lb;
-        var ex = o[0] * 0.5, ey = o[1] * 0.5;
+    } else if (k.bottom === 'dress') {
+      skirtPath(g, 0.22, 0.15);
+      g.fillStyle = k.cloth;
+      g.fill();
+      g.fillStyle = k.print;
+      for (i = 0; i < PRINT.length; i++) {
         g.beginPath();
-        g.moveTo(0, -0.01);
-        g.lineTo(ex, ey);
-        g.strokeStyle = INK;
-        g.lineWidth = 0.085;
-        g.stroke();
-        g.strokeStyle = k.cloth;
-        g.lineWidth = 0.065;
-        g.stroke();
+        g.arc(PRINT[i][0], PRINT[i][1], 0.012, 0, TWO_PI);
+        g.fill();
       }
-      g.strokeStyle = INK;
+      skirtPath(g, 0.22, 0.15);
+      g.stroke();
     }
     g.lineWidth = LW;
   }
@@ -1350,9 +1402,8 @@
     g.strokeStyle = INK;
     g.lineWidth = LW;
 
-    if (!p.front) stroke3(g, j.sx, j.sy, j.ab[0], j.ab[1], j.ab[2], j.ab[3]);
-    stroke3(g, 0, 0, j.lb[0], j.lb[1], j.lb[2], j.lb[3]);
-    shoe(g, j.lb, k.shoes);
+    if (!p.front) arm2(g, f, j.ab);
+    leg(g, f, j.lb);
 
     if (k.pack) {
       g.save();
@@ -1370,14 +1421,14 @@
       g.lineWidth = LW;
     }
 
-    stroke3(g, 0, 0, j.lf[0], j.lf[1], j.lf[2], j.lf[3]);
-    shoe(g, j.lf, k.shoes);
+    leg(g, f, j.lf);
     lowerClothes(g, f);
 
     g.beginPath();
     g.moveTo(0, 0);
     g.lineTo(j.nx, j.ny);
     g.stroke();
+    if (k.shirt) cloth(g, [0, -0.01, j.nx * 0.86, j.ny * 0.86], 0.075, k.shirt);
     if (k.pack) {
       // axelremmen
       g.save();
@@ -1393,7 +1444,7 @@
       g.lineWidth = LW;
     }
     if (!p.front) {
-      stroke3(g, j.sx, j.sy, j.af[0], j.af[1], j.af[2], j.af[3]);
+      arm2(g, f, j.af);
       if (p.fingers) { fingers(g, j.af); fingers(g, j.ab); }
     }
 
@@ -1405,8 +1456,8 @@
     g.restore();
 
     if (p.front) {
-      stroke3(g, j.sx, j.sy, j.ab[0], j.ab[1], j.ab[2], j.ab[3]);
-      stroke3(g, j.sx, j.sy, j.af[0], j.af[1], j.af[2], j.af[3]);
+      arm2(g, f, j.ab);
+      arm2(g, f, j.af);
       hand(g, j.ab, k.skin);
       hand(g, j.af, k.skin);
     }
@@ -1421,6 +1472,15 @@
     g.strokeStyle = INK;
     g.lineWidth = 0.15;
     hairBack(g, k);
+    if (k.ears) {
+      for (var s = -1; s <= 1; s += 2) {
+        g.beginPath();
+        g.ellipse(s * 1.0, 0.05, 0.22, 0.28, 0, 0, TWO_PI);
+        g.fillStyle = k.skin;
+        g.fill();
+        g.stroke();
+      }
+    }
 
     g.beginPath();
     g.arc(0, 0, 1, 0, TWO_PI);
@@ -1448,6 +1508,12 @@
     if (f.beard > 0 && f.beardKind === 0) mustache(g);
     g.lineWidth = 0.15;
     hairFront(g, k);
+    if (k.earring) {
+      g.beginPath();
+      g.arc(0.9, 0.42, 0.07, 0, TWO_PI);
+      g.fillStyle = '#ffd43b';
+      g.fill();
+    }
     if (f.beard > 0 && f.beardKind === 1) glasses(g);
   }
 
@@ -1641,83 +1707,68 @@
     g.stroke();
   }
 
+  function hairLen(k) { return k.longer ? 1.55 : k.style === 'cap' ? 1.2 : 1.32; }
+
   function hairBack(g, k) {
+    if (k.style !== 'long' && k.style !== 'cap') return;
+    var n = hairLen(k);
     g.fillStyle = k.hair;
-    var s;
-    switch (k.style) {
-      case 'long':
-        g.beginPath();
-        g.arc(0, -0.06, 1.12, Math.PI, TWO_PI);
-        g.lineTo(1.16, 1.32);
-        g.quadraticCurveTo(0, 1.5, -1.16, 1.32);
-        g.closePath();
-        g.fill();
-        g.stroke();
-        break;
-      case 'pigtails':
-        for (s = -1; s <= 1; s += 2) {
-          g.beginPath();
-          g.ellipse(s * 1.22, 0.3, 0.3, 0.5, -s * 0.35, 0, TWO_PI);
-          g.fillStyle = k.hair;
-          g.fill();
-          g.stroke();
-          g.beginPath();
-          g.arc(s * 1.0, -0.12, 0.14, 0, TWO_PI);
-          g.fillStyle = k.tie;
-          g.fill();
-          g.stroke();
-        }
-        break;
-      case 'curly':
-        for (var a = 0.85 * Math.PI; a <= 2.16 * Math.PI; a += 0.16 * Math.PI) {
-          g.beginPath();
-          g.arc(Math.cos(a) * 1.0, Math.sin(a) * 1.0 - 0.05, 0.36, 0, TWO_PI);
-          g.fill();
-          g.stroke();
-        }
-        break;
+    g.beginPath();
+    g.arc(0, -0.06, 1.12, Math.PI, TWO_PI);
+    g.lineTo(1.16, n);
+    g.quadraticCurveTo(0, n + 0.18, -1.16, n);
+    g.closePath();
+    g.fill();
+    g.stroke();
+  }
+
+  // Raka slingor längs ansiktet ner över axlarna.
+  function sideStrands(g, k, top) {
+    var n = hairLen(k), s;
+    for (s = -1; s <= 1; s += 2) {
+      g.beginPath();
+      g.moveTo(s * 0.9, top);
+      g.quadraticCurveTo(s * 1.12, 0.3, s * 1.05, n - 0.02);
+      g.lineWidth = 0.44;
+      g.strokeStyle = INK;
+      g.stroke();
+      g.lineWidth = 0.3;
+      g.strokeStyle = k.hair;
+      g.stroke();
     }
+    g.strokeStyle = k.hairDark;
+    g.lineWidth = 0.06;
+    g.beginPath();
+    for (s = -1; s <= 1; s += 2) {
+      g.moveTo(s * 1.02, 0.1);
+      g.quadraticCurveTo(s * 1.08, 0.7, s * 1.02, n - 0.07);
+    }
+    g.stroke();
   }
 
   function hairFront(g, k) {
-    var s;
+    var s, b = k.part;
     g.fillStyle = k.hair;
     g.strokeStyle = INK;
     switch (k.style) {
       case 'long':
-        // lugg med bena och raka slingor ner över axlarna
+        // lugg som delas vid benan (b = benans läge i sidled)
         g.beginPath();
         g.moveTo(-1.09, -0.2);
         g.arc(0, -0.06, 1.1, Math.PI + 0.13, TWO_PI - 0.13);
-        g.quadraticCurveTo(0.8, -0.72, 0.22, -0.68);
-        g.quadraticCurveTo(-0.3, -0.78, -1.09, -0.2);
+        g.quadraticCurveTo(b + 0.6, -0.74, b, -0.68);
+        g.quadraticCurveTo(b - 0.55, -0.76, -1.09, -0.2);
         g.closePath();
         g.fill();
         g.stroke();
-        for (s = -1; s <= 1; s += 2) {
-          g.beginPath();
-          g.moveTo(s * 0.9, -0.5);
-          g.quadraticCurveTo(s * 1.12, 0.3, s * 1.05, 1.3);
-          g.lineWidth = 0.44;
-          g.strokeStyle = INK;
-          g.stroke();
-          g.lineWidth = 0.3;
-          g.strokeStyle = k.hair;
-          g.stroke();
-        }
-        g.strokeStyle = k.hairDark;
-        g.lineWidth = 0.06;
+        sideStrands(g, k, -0.5);
         g.beginPath();
-        g.moveTo(0.22, -0.7);
-        g.quadraticCurveTo(0.2, -0.95, 0.08, -1.12);
-        g.moveTo(0.5, -0.76);
-        g.quadraticCurveTo(0.85, -0.62, 0.97, -0.3);
-        g.moveTo(-0.15, -0.8);
-        g.quadraticCurveTo(-0.7, -0.78, -0.97, -0.35);
-        for (s = -1; s <= 1; s += 2) {
-          g.moveTo(s * 1.02, 0.1);
-          g.quadraticCurveTo(s * 1.08, 0.7, s * 1.02, 1.25);
-        }
+        g.moveTo(b, -0.7);
+        g.quadraticCurveTo(b * 0.9, -0.95, b * 0.4, -1.13);
+        g.moveTo(b + 0.3, -0.76);
+        g.quadraticCurveTo(b + 0.65, -0.65, 0.97, -0.3);
+        g.moveTo(b - 0.35, -0.78);
+        g.quadraticCurveTo(-0.7, -0.76, -0.97, -0.35);
         g.stroke();
         break;
       case 'short':
@@ -1726,55 +1777,20 @@
         g.arc(0, -0.05, 1.07, Math.PI + 0.24, TWO_PI - 0.24);
         g.lineTo(0.75, -0.5);
         g.lineTo(0.5, -0.64);
-        g.lineTo(0.25, -0.48);
+        g.lineTo(0.25, -0.5);
         g.lineTo(0, -0.64);
-        g.lineTo(-0.25, -0.48);
+        g.lineTo(-0.25, -0.5);
         g.lineTo(-0.5, -0.64);
         g.lineTo(-0.75, -0.5);
         g.closePath();
         g.fill();
         g.stroke();
         break;
-      case 'pigtails':
-        g.beginPath();
-        g.moveTo(-1.05, -0.25);
-        g.arc(0, -0.05, 1.07, Math.PI + 0.19, TWO_PI - 0.19);
-        g.quadraticCurveTo(0.5, -0.55, 0, -0.74);
-        g.quadraticCurveTo(-0.5, -0.55, -1.05, -0.25);
-        g.closePath();
-        g.fill();
-        g.stroke();
-        break;
-      case 'curly':
-        for (s = -0.6; s <= 0.61; s += 0.3) {
-          g.beginPath();
-          g.arc(s, -0.8 + 0.12 * Math.abs(s), 0.22, 0, TWO_PI);
-          g.fill();
-          g.stroke();
-        }
-        break;
-      case 'spiky':
-        g.beginPath();
-        g.moveTo(-1.0, -0.3);
-        g.lineTo(-0.85, -1.3);
-        g.lineTo(-0.55, -0.85);
-        g.lineTo(-0.3, -1.45);
-        g.lineTo(0, -0.9);
-        g.lineTo(0.3, -1.45);
-        g.lineTo(0.55, -0.85);
-        g.lineTo(0.85, -1.3);
-        g.lineTo(1.0, -0.3);
-        g.quadraticCurveTo(0, -0.8, -1.0, -0.3);
-        g.closePath();
-        g.fill();
-        g.stroke();
-        break;
       case 'cap':
-        for (s = -1; s <= 1; s += 2) {
-          g.beginPath();
-          g.arc(s * 0.92, -0.1, 0.2, 0, TWO_PI);
-          g.fill();
-        }
+        // keps med Stitch-tryck och ljust hår som hänger ut under
+        sideStrands(g, k, -0.25);
+        g.strokeStyle = INK;
+        g.lineWidth = 0.15;
         g.beginPath();
         g.arc(0, -0.2, 1.05, Math.PI, TWO_PI);
         g.closePath();
@@ -1782,13 +1798,27 @@
         g.fill();
         g.stroke();
         g.beginPath();
-        g.ellipse(0.75, -0.22, 0.7, 0.13, 0, 0, TWO_PI);
+        g.ellipse(0.7, -0.22, 0.75, 0.14, 0, 0, TWO_PI);
+        g.fillStyle = k.capDark;
+        g.fill();
+        g.stroke();
+        g.lineWidth = 0.06;
+        for (s = -1; s <= 1; s += 2) {
+          g.beginPath();
+          g.ellipse(s * 0.32, -0.95, 0.12, 0.26, s * 0.5, 0, TWO_PI);
+          g.fillStyle = '#7ea6dc';
+          g.fill();
+          g.stroke();
+        }
+        g.beginPath();
+        g.ellipse(0, -0.68, 0.27, 0.24, 0, 0, TWO_PI);
         g.fill();
         g.stroke();
         g.beginPath();
-        g.arc(0, -1.22, 0.1, 0, TWO_PI);
+        g.arc(-0.1, -0.72, 0.05, 0, TWO_PI);
+        g.arc(0.1, -0.72, 0.05, 0, TWO_PI);
+        g.fillStyle = INK;
         g.fill();
-        g.stroke();
         break;
     }
     g.lineWidth = 0.15;
