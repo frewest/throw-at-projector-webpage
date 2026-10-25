@@ -17,6 +17,8 @@
  * Publikt API: window.Projector.apply({mode, count, speed, size, debug})
  *              window.Projector.getState()
  * "ants" accepteras som alias för "count" (äldre versioner av appen).
+ * Ett läge som inte är laddat hämtas från <mode>.js; när det är klart
+ * anropas Projector.onState(state), som cast.js skickar vidare till appen.
  */
 (function () {
   'use strict';
@@ -26,6 +28,7 @@
   var modes = {}, order = [];
   var perMode = {};          // id -> {count, speed, size}
   var mode = null;           // aktivt läge
+  var loading = {};          // lägen som håller på att hämtas
   var pendingMode = null;    // valt innan start()
   var debug = false;
 
@@ -118,9 +121,33 @@
   }
 
   // ---------------------------------------------------------------- API
+  // Hämta ett läge som inte fanns när sidan laddades (t.ex. om Chromecasten
+  // har en äldre index.html sparad) och använd inställningarna när det är klart.
+  function loadMode(id, cfg) {
+    if (loading[id] || !/^[a-z0-9-]+$/.test(id)) return;
+    loading[id] = true;
+    var script = document.createElement('script');
+    script.src = id + '.js?t=' + Date.now();
+    script.onload = script.onerror = function () {
+      loading[id] = false;
+      if (!modes[id]) { console.warn('Okänt läge: ' + id); return; }
+      var state = apply(cfg);
+      if (window.Projector.onState) window.Projector.onState(state);
+    };
+    document.head.appendChild(script);
+  }
+
   function apply(cfg) {
     if (!cfg || typeof cfg !== 'object') return getState();
-    if (cfg.mode != null && modes[cfg.mode]) activate(String(cfg.mode));
+    if (cfg.mode != null) {
+      var want = String(cfg.mode);
+      if (!modes[want]) {
+        // övriga värden hör till det nya läget och används när det laddats
+        loadMode(want, cfg);
+        return getState();
+      }
+      activate(want);
+    }
 
     var id = mode ? mode.id : (pendingMode || order[0]);
     var m = modes[id], s = perMode[id], lim = m.limits;
@@ -234,6 +261,7 @@
     register: register,
     apply: apply,
     getState: getState,
-    start: start
+    start: start,
+    onState: null
   };
 })();

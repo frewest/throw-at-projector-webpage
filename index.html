@@ -37,10 +37,15 @@
 <body>
   <canvas id="c" width="1920" height="1080"></canvas>
   <div id="hud"></div>
-  <script src="engine.js"></script>
-  <script src="ants.js"></script>
-  <script src="stitch.js"></script>
-  <script src="farm.js"></script>
-  <script src="cast.js"></script>
+  <script>
+    // GitHub Pages låter enheter spara filerna i 10 minuter. Byt adress var
+    // tionde minut så att Chromecasten aldrig kör gamla skript längre än så.
+    (function () {
+      var v = Math.floor(Date.now() / 6e5);
+      ['engine', 'ants', 'stitch', 'farm', 'cast'].forEach(function (name) {
+        document.write('<script src="' + name + '.js?v=' + v + '"><\/script>');
+      });
+    })();
+  </script>
 </body>
 </html>

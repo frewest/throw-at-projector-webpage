@@ -31,6 +31,16 @@
     var framework = cast.framework;
     var context = framework.CastReceiverContext.getInstance();
 
+    // Tillstånd som ändras senare (ett läge som hämtades i efterhand) går
+    // till alla anslutna avsändare.
+    window.Projector.onState = function (state) {
+      try {
+        context.sendCustomMessage(NAMESPACE, undefined, state);
+      } catch (e) {
+        console.warn('Kunde inte skicka tillståndet', e);
+      }
+    };
+
     context.addCustomMessageListener(NAMESPACE, function (event) {
       var data = event.data;
       if (typeof data === 'string') {
