@@ -42,7 +42,7 @@
     // tionde minut så att Chromecasten aldrig kör gamla skript längre än så.
     (function () {
       var v = Math.floor(Date.now() / 6e5);
-      ['engine', 'ants', 'stitch', 'farm', 'cast'].forEach(function (name) {
+      ['engine', 'ants', 'stitch', 'farm', 'kids', 'cast'].forEach(function (name) {
         document.write('<script src="' + name + '.js?v=' + v + '"><\/script>');
       });
     })();
