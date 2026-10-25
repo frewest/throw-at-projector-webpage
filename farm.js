@@ -257,7 +257,8 @@
     rr(g, -0.36, 0.53, -0.18, 1.13, 0.03, 'rgba(0,0,0,0.12)', true);
   }
 
-  // Hövändare: fyra rotorer med pinnar; f = animationsruta (0..3).
+  // Hövändare: fyra rotorer med pinnar; f = animationsruta (0..TEDDER_FRAMES-1).
+  var TEDDER_FRAMES = 6;
   function tedder(g, f) {
     drawbar(g, -0.78, -0.5);
     rr(g, -0.9, -1.2, -0.82, 1.2, 0.02, '#c62f2a');
@@ -272,7 +273,7 @@
       g.fillStyle = 'rgba(90,90,96,0.12)';
       g.fill();
       for (var t = 0; t < 6; t++) {
-        var a = t / 6 * TWO_PI + dir * f / 4 * (Math.PI / 3);
+        var a = t / 6 * TWO_PI + dir * f / TEDDER_FRAMES * (Math.PI / 3);
         var ex = -1.0 + Math.cos(a) * 0.27, ey = y + Math.sin(a) * 0.27;
         line(g, -1.0, y, ex, ey, 0.016, '#55565c');
         line(g, ex, ey, ex + Math.cos(a + dir * 1.4) * 0.05, ey + Math.sin(a + dir * 1.4) * 0.05, 0.012, '#2c2d31');
@@ -423,7 +424,7 @@
     { name: 'Lantbruksspruta', front: 0.58, back: 1.04, half: 1.43, body: 0.4, speed: 1.15, weight: 1,
       draw: withTractor(sprayer), trail: { x: -1.0, y: 0, w: 2.84, stamp: sprayed }, emit: 'mist' },
     { name: 'Hövändare', front: 0.58, back: 1.3, half: 1.22, body: 0.4, speed: 1.05, weight: 2,
-      draw: withTractor(tedder), frames: 4,
+      draw: withTractor(tedder), frames: TEDDER_FRAMES, spin: 3.5,
       trail: { x: -1.2, y: 0, w: 2.4, stamp: tedded }, emit: 'hay' },
     { name: 'Traktor med balgrip', front: 1.22, back: 0.6, half: 0.37, body: 0.37, speed: 1.2, weight: 2,
       draw: function (g, P, f) { tractor(g, P); balgrip(g, f === 1); }, frames: 2, grab: true },
@@ -756,7 +757,7 @@
           stamp(i, tr[0], tr[1], len, tr[2] * 2, track);
         }
         if (T.trail) stamp(i, T.trail.x, T.trail.y, len, T.trail.w, T.trail.stamp);
-        if (T.frames > 1 && !T.grab) anim[i] = (anim[i] + step / L * 0.8) % 1;
+        if (T.frames > 1 && !T.grab) anim[i] = (anim[i] + step / L * 0.8 * (T.spin || 1)) % 1;
       }
 
       // rundbalar
