@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Myror</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #fff;
+      cursor: none;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      touch-action: manipulation;
+    }
+    #hud {
+      display: none;
+      position: fixed;
+      left: 12px;
+      top: 12px;
+      padding: 4px 8px;
+      font: 14px/1.4 monospace;
+      color: #333;
+      background: rgba(255, 255, 255, 0.8);
+      border: 1px solid #ccc;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <div id="hud"></div>
+  <script src="ants.js"></script>
+  <script src="cast.js"></script>
+</body>
+</html>
