@@ -50,6 +50,8 @@
   var sweep = new Int8Array(MAX);      // åt vilket håll raderna flyttas
   var passes = new Int8Array(MAX);     // vändor kvar innan fordonet kör iväg
   var wait = new Float32Array(MAX);    // hur länge fordonet stått och väntat
+  var patience = new Float32Array(MAX); // hur länge det väntar innan det kör (slump)
+  var blocker = new Int8Array(MAX);    // fordonet som står i vägen, eller -1
   var ghost = new Float32Array(MAX);   // tid kvar då det kör igenom andra
   var dist = new Float32Array(MAX);    // sträcka sedan förra balen
   var puff = new Float32Array(MAX);    // tid till nästa rökpuff
@@ -465,6 +467,8 @@
     state[i] = DRIVE;
     passes[i] = 1 + ((Math.random() * 4) | 0);
     wait[i] = 0;
+    patience[i] = rand(1, 5);
+    blocker[i] = -1;
     ghost[i] = 0;
     dist[i] = rand(0, 2) * L;
     puff[i] = Math.random() * 0.3;
@@ -524,7 +528,7 @@
     if (bcount < MAXB) bcount++;
   }
 
-  // Står någon i vägen framför fordonet?
+  // Vem står i vägen framför fordonet? -1 om ingen.
   function blocked(i) {
     var T = TYPES[type[i]];
     var c = Math.cos(head[i]), s = Math.sin(head[i]);
@@ -535,9 +539,9 @@
       var along = dx * c + dy * s;
       if (along <= 0) continue;
       var lat = Math.abs(dy * c - dx * s);
-      if (along < (T.front + U.back + 0.25) * L && lat < (T.body + U.body) * L) return true;
+      if (along < (T.front + U.back + 0.25) * L && lat < (T.body + U.body) * L) return j;
     }
-    return false;
+    return -1;
   }
 
   // Börja en vändning (180°) så att nästa rad hamnar bredvid. Går det inte
@@ -577,11 +581,22 @@
       var T = TYPES[type[i]];
       var v = v0 * T.speed * spd[i];
 
-      // köa bakom den som står i vägen; har det dröjt, kör igenom
+      // Köa bakom den som står i vägen. Varje fordon har sitt eget, slumpade
+      // tålamod: den vars tålamod tar slut först kör, och de som väntar på
+      // just det fordonet börjar om sin väntan, så att de släpper fram det.
       if (ghost[i] > 0) ghost[i] -= dt;
-      if (ghost[i] <= 0 && blocked(i)) {
+      blocker[i] = ghost[i] > 0 ? -1 : blocked(i);
+      if (blocker[i] >= 0) {
         wait[i] += dt;
-        if (wait[i] > 2.5) { ghost[i] = 4; wait[i] = 0; }
+        if (wait[i] > patience[i]) {
+          ghost[i] = 4;
+          wait[i] = 0;
+          patience[i] = rand(1, 5);
+          blocker[i] = -1;
+          for (var q = 0; q < count; q++) {
+            if (blocker[q] === i) { wait[q] = 0; patience[q] = rand(1, 5); }
+          }
+        }
         cur[i] = Math.max(0, cur[i] - v * 3 * dt);
       } else {
         wait[i] = 0;
