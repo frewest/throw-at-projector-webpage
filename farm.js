@@ -1,11 +1,12 @@
 /*
  * Läge "Jordbruk" – traktorer och andra jordbruksfordon kör över fältet.
  *
- * Fordonen ses uppifrån och kör omkring på fältet i slumpvisa svängar. En
- * stund håller de sig kvar på fältet, sedan kör de iväg och ett nytt fordon
- * kommer in från en kant. Redskapen lämnar spår på ett eget spår-lager som
- * bleknar bort efter en stund: harvad jord, plogfåror, sådda rader, stubb,
- * klippt gräs, gödselkorn och rundbalar.
+ * Fordonen ses uppifrån och kör i raka rader över fältet och ut på andra
+ * sidan, där ett nytt fordon kommer in från en kant. Möts två fordon rakt
+ * emot varandra svänger det ena 90 grader. Traktorn med balgrip hämtar
+ * rundbalarna som pressen lämnat och kör iväg med dem. Redskapen lämnar spår
+ * på ett eget spår-lager som bleknar bort efter en stund: harvad jord,
+ * plogfåror, sådda rader, stubb, klippt och vänt gräs, gödselkorn och balar.
  *
  * Fordonen förrenderas en gång per storlek och färg och roteras vid ritning,
  * så varje fordon kostar ett drawImage-anrop.
@@ -39,10 +40,10 @@
   var px = new Float32Array(MAX);
   var py = new Float32Array(MAX);
   var head = new Float32Array(MAX);    // aktuell riktning
-  var curve = new Float32Array(MAX);   // aktuell krökning (1/px, + = höger)
-  var curveGoal = new Float32Array(MAX); // krökningen fordonet styr mot
-  var curveT = new Float32Array(MAX);  // tid till nästa rattutslag
-  var stay = new Float32Array(MAX);    // tid kvar innan fordonet får köra iväg
+  var goal = new Float32Array(MAX);    // riktningen fordonet svänger mot
+  var carry = new Uint8Array(MAX);     // balgrip: bär en bal
+  var target = new Int16Array(MAX).fill(-1); // balgrip: balen den ska hämta
+  var seekT = new Float32Array(MAX);   // balgrip: hur länge den letat, -1 = gett upp
   var spd = new Float32Array(MAX);     // individuell fartfaktor
   var cur = new Float32Array(MAX);     // aktuell fart i px/s (accelererar)
   var wait = new Float32Array(MAX);    // hur länge fordonet stått och väntat
@@ -51,7 +52,7 @@
   var ghost = new Float32Array(MAX);   // tid kvar då det kör igenom andra
   var dist = new Float32Array(MAX);    // sträcka sedan förra balen
   var puff = new Float32Array(MAX);    // tid till nästa rökpuff
-  var anim = new Float32Array(MAX);    // animationsfas (skördetröskans haspel)
+  var anim = new Float32Array(MAX);    // animationsfas (haspel, hövändarens rotorer)
   var count = 0;
 
   // partiklar (packade: levande ligger först)
@@ -61,10 +62,11 @@
   var psize = new Float32Array(MAXP);
   var pkind = new Uint8Array(MAXP), pcol = new Uint8Array(MAXP);
   var pcount = 0;
-  var PCOLORS = ['#8d8f94', '#b7a9ae', '#d4bd78', '#8cc8e6'];
+  var PCOLORS = ['#8d8f94', '#b7a9ae', '#d4bd78', '#8cc8e6', '#aab45a'];
 
   // rundbalar
   var bx = new Float32Array(MAXB), by = new Float32Array(MAXB), bage = new Float32Array(MAXB);
+  var bclaim = new Int8Array(MAXB);    // balgripen som ska hämta balen + 1, eller 0
   var bcount = 0, bnext = 0;
   var baleSprite = null;
 
@@ -255,6 +257,63 @@
     rr(g, -0.36, 0.53, -0.18, 1.13, 0.03, 'rgba(0,0,0,0.12)', true);
   }
 
+  // Hövändare: fyra rotorer med pinnar; f = animationsruta (0..3).
+  function tedder(g, f) {
+    drawbar(g, -0.78, -0.5);
+    rr(g, -0.9, -1.2, -0.82, 1.2, 0.02, '#c62f2a');
+    line(g, -0.55, 0, -0.86, -1.0, 0.03, '#c62f2a');
+    line(g, -0.55, 0, -0.86, 1.0, 0.03, '#c62f2a');
+    var ys = [-0.9, -0.3, 0.3, 0.9];
+    for (var k = 0; k < ys.length; k++) {
+      var y = ys[k], dir = k < 2 ? 1 : -1;
+      wheel(g, -1.0, y, 0.12, 0.05);
+      g.beginPath();
+      g.arc(-1.0, y, 0.27, 0, TWO_PI);
+      g.fillStyle = 'rgba(90,90,96,0.12)';
+      g.fill();
+      for (var t = 0; t < 6; t++) {
+        var a = t / 6 * TWO_PI + dir * f / 4 * (Math.PI / 3);
+        var ex = -1.0 + Math.cos(a) * 0.27, ey = y + Math.sin(a) * 0.27;
+        line(g, -1.0, y, ex, ey, 0.016, '#55565c');
+        line(g, ex, ey, ex + Math.cos(a + dir * 1.4) * 0.05, ey + Math.sin(a + dir * 1.4) * 0.05, 0.012, '#2c2d31');
+      }
+      circ(g, -1.0, y, 0.05, '#c62f2a');
+    }
+  }
+
+  // Frontlastare med balgrip, framför traktorn. Med bal om carrying.
+  function balgrip(g, carrying) {
+    rr(g, -0.08, -0.25, 0.8, -0.18, 0.02, '#e8b10f');
+    rr(g, -0.08, 0.18, 0.8, 0.25, 0.02, '#e8b10f');
+    rr(g, 0.76, -0.31, 0.84, 0.31, 0.02, '#5a5b60');
+    if (carrying) {
+      circ(g, 1.0, 0, 0.21, '#e2c165');
+      g.strokeStyle = '#b8954a';
+      g.lineWidth = 0.014;
+      for (var k = 1; k <= 3; k++) {
+        g.beginPath();
+        g.arc(1.0, 0, 0.05 * k, k, k + 4.5);
+        g.stroke();
+      }
+      g.strokeStyle = OUTLINE;
+      g.lineWidth = OL;
+    }
+    var tip = carrying ? 0.17 : 0.24;
+    for (var side = -1; side <= 1; side += 2) {
+      g.beginPath();
+      g.moveTo(0.82, side * 0.29);
+      g.quadraticCurveTo(1.05, side * 0.34, 1.18, side * tip);
+      g.strokeStyle = OUTLINE;
+      g.lineWidth = 0.05 + OL * 2;
+      g.stroke();
+      g.strokeStyle = '#e8b10f';
+      g.lineWidth = 0.05;
+      g.stroke();
+    }
+    g.strokeStyle = OUTLINE;
+    g.lineWidth = OL;
+  }
+
   function combine(g, P, t) {
     wheel(g, 0.15, -0.43, 0.44, 0.18);
     wheel(g, 0.15, 0.43, 0.44, 0.18);
@@ -316,6 +375,13 @@
     g.fillStyle = '#86b155';
     g.fillRect(-len - 0.01, -0.09, len + 0.02, 0.18);
   }
+  function tedded(g, len, hw) {
+    band(g, len, hw, '#eef1c9');
+    g.fillStyle = '#c3ca7c';
+    for (var k = 0; k < 5; k++) {
+      g.fillRect(-len * Math.random() - 0.04, rand(-hw, hw), 0.08, 0.018);
+    }
+  }
   function track(g, len, hw) { band(g, len, hw * 0.6, '#f0ece4'); }
 
   // ---------------------------------------------------------------- fordonstyper
@@ -333,12 +399,12 @@
   var TRACTOR_TRACKS = [[-0.2, -0.27, 0.07], [-0.2, 0.27, 0.07]];
 
   function withTractor(tool) {
-    return function (g, P) { if (tool) tool(g); tractor(g, P); };
+    return function (g, P, f) { if (tool) tool(g, f); tractor(g, P); };
   }
 
   // front/back/half: utbredning i traktorlängder. body: halva bredden som
   // räknas vid köer. trail: spår {x, y, w, stamp}. bales: släpper rundbalar.
-  // emit: partiklar ('grain', 'mist', 'chaff').
+  // emit: partiklar ('grain', 'mist', 'chaff', 'hay'). grab: hämtar balar.
   var TYPES = [
     { name: 'Traktor', front: 0.58, back: 0.6, half: 0.37, body: 0.37, speed: 1.3, weight: 2,
       draw: withTractor(null) },
@@ -356,10 +422,15 @@
       draw: withTractor(drill), trail: { x: -1.02, y: 0, w: 1.26, stamp: seeded } },
     { name: 'Lantbruksspruta', front: 0.58, back: 1.04, half: 1.43, body: 0.4, speed: 1.15, weight: 1,
       draw: withTractor(sprayer), trail: { x: -1.0, y: 0, w: 2.84, stamp: sprayed }, emit: 'mist' },
+    { name: 'Hövändare', front: 0.58, back: 1.3, half: 1.22, body: 0.4, speed: 1.05, weight: 2,
+      draw: withTractor(tedder), frames: 4,
+      trail: { x: -1.2, y: 0, w: 2.4, stamp: tedded }, emit: 'hay' },
+    { name: 'Traktor med balgrip', front: 1.22, back: 0.6, half: 0.37, body: 0.37, speed: 1.2, weight: 2,
+      draw: function (g, P, f) { tractor(g, P); balgrip(g, f === 1); }, frames: 2, grab: true },
     { name: 'Slåttermaskin', front: 0.58, back: 0.6, half: 1.18, body: 0.4, speed: 1.1, weight: 1,
       draw: withTractor(mower), trail: { x: -0.27, y: 0.83, w: 0.66, stamp: grass } },
     { name: 'Skördetröska', front: 1.02, back: 1.08, half: 1.02, body: 1.0, speed: 0.65, weight: 2,
-      draw: combine, pals: COMBINE_PALS, frames: 4,
+      draw: function (g, P, f) { combine(g, P, f / 20); }, pals: COMBINE_PALS, frames: 4,
       trail: { x: -1.06, y: 0, w: 2.0, stamp: stubble }, emit: 'chaff',
       tracks: [[0.15, -0.43, 0.09], [0.15, 0.43, 0.09], [-0.75, -0.32, 0.05], [-0.75, 0.32, 0.05]],
       exhaust: [-0.62, 0.22] }
@@ -372,7 +443,7 @@
     T0.frames = T0.frames || 1;
     T0.tracks = T0.tracks || TRACTOR_TRACKS;
     T0.exhaust = T0.exhaust || [0.12, -0.065];
-    // minsta svängradie, i traktorlängder
+    // svängradie, i traktorlängder
     T0.radius = Math.max(0.6, T0.trail ? T0.trail.w / 2 : 0.6);
   }
 
@@ -397,7 +468,7 @@
           g.lineCap = 'round';
           g.strokeStyle = OUTLINE;
           g.lineWidth = OL;
-          T.draw(g, T.pals[p], f / T.frames / 5);
+          T.draw(g, T.pals[p], f);
         }
         list.push({ img: img, cw: cw, ch: ch, ax: ax, ay: ay });
       }
@@ -439,13 +510,36 @@
     return a;
   }
 
+  function horizontal(i) { return Math.abs(Math.cos(goal[i])) > 0.5; }
+
+  // Välj en rad där inget annat fordon kör åt samma håll (i samma axel).
+  function pickLat(i, span) {
+    var T = TYPES[type[i]];
+    var m = Math.min(span / 2, (T.half + 0.1) * L);
+    var best = rand(m, span - m), bestD = -1;
+    for (var k = 0; k < 8; k++) {
+      var c = rand(m, span - m), d = Infinity;
+      for (var j = 0; j < count; j++) {
+        if (j === i || horizontal(j) !== horizontal(i)) continue;
+        d = Math.min(d, Math.abs((horizontal(j) ? py[j] : px[j]) - c));
+      }
+      if (d > bestD) { bestD = d; best = c; }
+    }
+    return best;
+  }
+
+  function releaseBale(i) {
+    if (target[i] >= 0 && bclaim[target[i]] === i + 1) bclaim[target[i]] = 0;
+    target[i] = -1;
+  }
+
   function initVehicle(i) {
+    releaseBale(i);
     type[i] = pickType();
     pal[i] = (Math.random() * TYPES[type[i]].pals.length) | 0;
     spd[i] = rand(0.85, 1.15);
-    curve[i] = curveGoal[i] = 0;
-    curveT[i] = rand(1, 3);
-    stay[i] = rand(20, 60);
+    carry[i] = 0;
+    seekT[i] = 0;
     wait[i] = 0;
     patience[i] = rand(1, 5);
     blocker[i] = -1;
@@ -455,41 +549,43 @@
     anim[i] = Math.random();
   }
 
-  // Nytt fordon kör in från en kant, där det är som glesast.
+  // Nytt fordon kör in från en kant, i en rad där det är glest.
   function spawnAtEdge(i) {
     initVehicle(i);
     var T = TYPES[type[i]];
     var out = (T.front + 0.05) * L;
-    var best = -1;
-    for (var k = 0; k < 8; k++) {
-      var p = Math.random() * 2 * (W + H), x, y, h;
-      if (p < W) { x = p; y = -out; h = Math.PI / 2; }
-      else if (p < W + H) { x = W + out; y = p - W; h = Math.PI; }
-      else if (p < 2 * W + H) { x = p - W - H; y = H + out; h = -Math.PI / 2; }
-      else { x = -out; y = p - 2 * W - H; h = 0; }
-      var d = Infinity;
-      for (var j = 0; j < count; j++) {
-        if (j !== i) d = Math.min(d, Math.abs(px[j] - x) + Math.abs(py[j] - y));
-      }
-      if (d > best) { best = d; px[i] = x; py[i] = y; head[i] = h; }
-    }
-    head[i] = wrapAngle(head[i] + rand(-0.6, 0.6));
+    var h = Math.random() < 0.65 ? (Math.random() < 0.5 ? 0 : Math.PI)
+      : (Math.random() < 0.5 ? Math.PI / 2 : -Math.PI / 2);
+    goal[i] = head[i] = h;
+    var lat = pickLat(i, horizontal(i) ? H : W);
+    if (h === 0) { px[i] = -out; py[i] = lat; }
+    else if (h === Math.PI) { px[i] = W + out; py[i] = lat; }
+    else if (h > 0) { px[i] = lat; py[i] = -out; }
+    else { px[i] = lat; py[i] = H + out; }
     cur[i] = BASE_SPEED * scale * settings.speed * T.speed * spd[i];
   }
 
   function setCount(n) {
     n = Math.max(0, Math.min(MAX, n | 0));
     for (var i = count; i < n; i++) spawnAtEdge(i);
+    for (i = n; i < count; i++) releaseBale(i);
     count = n;
   }
 
   function scatter() {
     for (var i = 0; i < count; i++) {
       spawnAtEdge(i);
-      px[i] = rand(0.1, 0.9) * W;
-      py[i] = rand(0.1, 0.9) * H;
-      head[i] = rand(-Math.PI, Math.PI);
+      if (horizontal(i)) px[i] = rand(0.1, 0.9) * W;
+      else py[i] = rand(0.1, 0.9) * H;
     }
+  }
+
+  // Riktning (längs en axel) mot närmaste kant, för att köra ut ur bild.
+  function nearestExit(i) {
+    var d = [W - px[i], H - py[i], px[i], py[i]];
+    var best = 0;
+    for (var k = 1; k < 4; k++) if (d[k] < d[best]) best = k;
+    return [0, Math.PI / 2, Math.PI, -Math.PI / 2][best];
   }
 
   function emit(kind, col, x, y, vx, vy, life, size) {
@@ -501,6 +597,9 @@
   }
 
   function dropBale(x, y) {
+    // en bal som skrivs över kan inte längre hämtas
+    for (var j = 0; j < count; j++) if (target[j] === bnext) target[j] = -1;
+    bclaim[bnext] = 0;
     bx[bnext] = x;
     by[bnext] = y;
     bage[bnext] = 0;
@@ -522,6 +621,34 @@
       if (along < (T.front + U.back + 0.25) * L && lat < (T.body + U.body) * L) return j;
     }
     return -1;
+  }
+
+  // Kommer någon rakt emot fordonet i samma rad? -1 om ingen.
+  function headOn(i) {
+    var T = TYPES[type[i]];
+    var c = Math.cos(head[i]), s = Math.sin(head[i]);
+    for (var j = 0; j < count; j++) {
+      if (j === i || goal[j] !== head[j]) continue;   // den andra svänger redan
+      if (Math.cos(head[i] - head[j]) > -0.9) continue;
+      var U = TYPES[type[j]];
+      var dx = px[j] - px[i], dy = py[j] - py[i];
+      var along = dx * c + dy * s;
+      if (along <= 0 || along > (T.front + U.front + 2) * L) continue;
+      if (Math.abs(dy * c - dx * s) < (T.body + U.body) * L) return j;
+    }
+    return -1;
+  }
+
+  // Balgrip: hitta närmaste bal som ingen annan ska hämta.
+  function findBale(i) {
+    var best = -1, bestD = Infinity;
+    for (var b = 0; b < bcount; b++) {
+      if (bclaim[b] || bage[b] > BALE_LIFE - 10) continue;
+      if (bx[b] < 0 || bx[b] > W || by[b] < 0 || by[b] > H) continue;
+      var d = Math.abs(bx[b] - px[i]) + Math.abs(by[b] - py[i]);
+      if (d < bestD) { bestD = d; best = b; }
+    }
+    if (best >= 0) { bclaim[best] = i + 1; target[i] = best; seekT[i] = 0; }
   }
 
   // ---------------------------------------------------------------- uppdatering
@@ -569,31 +696,51 @@
       }
       var step = cur[i] * dt;
 
-      // Slumpvisa rattutslag: ibland rakt fram, ibland en mjuk sväng.
-      var rmin = T.radius * L;
-      curveT[i] -= dt;
-      if (curveT[i] <= 0) {
-        curveGoal[i] = Math.random() < 0.5 ? 0
-          : (Math.random() < 0.5 ? -1 : 1) * rand(0.1, 0.6) / rmin;
-        curveT[i] = curveGoal[i] ? rand(1, 3) : rand(2, 6);
-      }
-      // Så länge fordonet ska stanna kvar styr det tillbaka in mot fältet
-      // när det närmar sig kanten; sedan får det köra iväg.
-      stay[i] -= dt;
-      var m = (T.front + 2 * T.radius) * L;
-      if (stay[i] > 0 && (px[i] < m || px[i] > W - m || py[i] < m || py[i] > H - m)) {
-        var d = wrapAngle(Math.atan2(H / 2 - py[i], W / 2 - px[i]) - head[i]);
-        if (Math.abs(d) > 0.5) curveGoal[i] = (d > 0 ? 1 : -1) / rmin;
-      } else if (stay[i] <= 0) {
-        // helt utanför bild: kört iväg, ett nytt fordon kommer in
-        var gone = (T.front + T.back + 0.2) * L;
-        if (px[i] < -gone || px[i] > W + gone || py[i] < -gone || py[i] > H + gone) {
-          spawnAtEdge(i);
-          continue;
+      // Balgripen: åk till en bal, ta upp den och kör iväg med den.
+      var rad = T.radius;
+      if (T.grab && !carry[i]) {
+        if (target[i] < 0 && seekT[i] >= 0) findBale(i);
+        if (target[i] >= 0) {
+          var b = target[i];
+          seekT[i] += dt;
+          world(i, 1.0, 0, tmp);
+          if (Math.abs(tmp[0] - bx[b]) + Math.abs(tmp[1] - by[b]) < 0.3 * L) {
+            carry[i] = 1;
+            bage[b] = BALE_LIFE + 1;   // balen är borta från fältet
+            releaseBale(i);
+            goal[i] = nearestExit(i);
+          } else if (seekT[i] > 20) {
+            releaseBale(i);            // kommer inte åt den, ge upp
+            seekT[i] = -1;             // och leta inte efter fler
+            goal[i] = nearestExit(i);
+          } else {
+            goal[i] = Math.atan2(by[b] - py[i], bx[b] - px[i]);
+            rad = 0.35;
+          }
         }
       }
-      curve[i] += (curveGoal[i] - curve[i]) * Math.min(1, 2 * dt);
-      head[i] = wrapAngle(head[i] + curve[i] * step);
+      var seeking = T.grab && !carry[i] && target[i] >= 0;
+      if (!seeking && goal[i] === head[i] && headOn(i) >= 0) {
+        // Möte i samma rad: sväng 90 grader, helst in mot fältets mitt.
+        var cx = W / 2 - px[i], cy = H / 2 - py[i];
+        var right = -Math.sin(head[i]) * cx + Math.cos(head[i]) * cy > 0;
+        if (Math.random() < 0.25) right = !right;
+        goal[i] = wrapAngle(head[i] + (right ? 1 : -1) * Math.PI / 2);
+      }
+
+      // Styr mot målriktningen, aldrig snävare än svängradien.
+      var diff = wrapAngle(goal[i] - head[i]);
+      var maxTurn = step / (rad * L);
+      var dh = Math.abs(diff) <= maxTurn ? diff : (diff > 0 ? maxTurn : -maxTurn);
+      head[i] = Math.abs(diff) <= maxTurn ? goal[i] : wrapAngle(head[i] + dh);
+
+      // Helt utanför bild och på väg bort: ett nytt fordon kommer in.
+      var gone = (T.front + T.back + 0.2) * L;
+      if ((px[i] < -gone || px[i] > W + gone || py[i] < -gone || py[i] > H + gone) &&
+          (W / 2 - px[i]) * Math.cos(head[i]) + (H / 2 - py[i]) * Math.sin(head[i]) < 0) {
+        spawnAtEdge(i);
+        continue;
+      }
 
       var c = Math.cos(head[i]), s = Math.sin(head[i]);
       px[i] += c * step;
@@ -601,14 +748,14 @@
 
       // spår: hjulspår först, redskapet ovanpå
       // ytterkanten i en sväng rör sig längre än mitten
-      var len = step / L * (1 + Math.abs(curve[i]) * T.half * L) + 0.002;
+      var len = step / L + Math.abs(dh) * T.half + 0.002;
       if (step > 0) {
         for (var k = 0; k < T.tracks.length; k++) {
           var tr = T.tracks[k];
           stamp(i, tr[0], tr[1], len, tr[2] * 2, track);
         }
         if (T.trail) stamp(i, T.trail.x, T.trail.y, len, T.trail.w, T.trail.stamp);
-        if (T.frames > 1) anim[i] = (anim[i] + step / L * 0.8) % 1;
+        if (T.frames > 1 && !T.grab) anim[i] = (anim[i] + step / L * 0.8) % 1;
       }
 
       // rundbalar
@@ -639,6 +786,14 @@
           a = head[i] + Math.PI + rand(-0.6, 0.6);
           life = rand(0.3, 0.5); d = rand(0.2, 0.8) * L;
           emit(GRAIN, 2, tmp[0], tmp[1], Math.cos(a) * d / life, Math.sin(a) * d / life, life, 0.03 * L);
+        }
+      } else if (T.emit === 'hay' && moving) {
+        n = (80 * dt + Math.random()) | 0;
+        for (k = 0; k < n; k++) {
+          world(i, -1.05, rand(-1.15, 1.15), tmp);
+          a = head[i] + Math.PI + rand(-0.9, 0.9);
+          life = rand(0.25, 0.45); d = rand(0.2, 0.7) * L;
+          emit(GRAIN, 4, tmp[0], tmp[1], Math.cos(a) * d / life, Math.sin(a) * d / life, life, 0.04 * L);
         }
       } else if (T.emit === 'mist' && moving) {
         n = (90 * dt + Math.random()) | 0;
@@ -717,7 +872,7 @@
     for (var i = 0; i < count; i++) {
       var T = TYPES[type[i]];
       var sp = sprites[type[i]][pal[i]];
-      var f = T.frames > 1 ? (anim[i] * T.frames) | 0 : 0;
+      var f = T.grab ? carry[i] : T.frames > 1 ? (anim[i] * T.frames) | 0 : 0;
       var c = Math.cos(head[i]), s = Math.sin(head[i]);
       ctx.setTransform(c, s, -s, c, px[i], py[i]);
       ctx.drawImage(sp.img, f * sp.cw, 0, sp.cw, sp.ch, -sp.ax, -sp.ay, sp.cw, sp.ch);
