@@ -2,8 +2,9 @@
 
 Cast-receivern för [throw-at-projector](https://github.com/frewest/throw-at-projector):
 levande, realtidsgenererade figurer på vit bakgrund, ritade med HTML5 canvas.
-Två lägen: **Myror** och **Stitch** (Stitch, Angel, Reuben, Lilo, Jumba och
-Pleakley som springer omkring, hoppar och jagar varandra).
+Lägen: **Myror**, **Stitch** (Stitch, Angel, Reuben, Lilo, Jumba och
+Pleakley som springer omkring, hoppar och jagar varandra) och **Jordbruk**
+(traktorer med redskap och skördetröskor som kör i rader och lämnar spår).
 Sidan körs på Chromecasten som Custom Web Receiver och hostas med GitHub Pages.
 
 **Adress:** <https://frewest.github.io/throw-at-projector-webpage/>
@@ -17,6 +18,7 @@ Sidan körs på Chromecasten som Custom Web Receiver och hostas med GitHub Pages
 | `engine.js` | Motorn: loop, storlek, inställningar, lägesbyte |
 | `ants.js` | Läget Myror |
 | `stitch.js` | Läget Stitch |
+| `farm.js` | Läget Jordbruk |
 | `cast.js` | Laddar Cast Receiver SDK på Chromecast och tar emot kommandon |
 
 ## GitHub Pages
@@ -33,16 +35,22 @@ python3 -m http.server 8000
 
 | Parameter | Standard | Beskrivning |
 |---|---|---|
-| `mode`  | ants | `ants` eller `stitch` |
-| `count` | 300 / 10 | Antal myror (0–2000) / figurer (0–60) |
-| `speed` | 1   | Hastighetsfaktor (myror 0.05–5, Stitch 0.2–3) |
-| `size`  | 1   | Storleksfaktor (myror 0.3–4, Stitch 0.4–2.5) |
+| `mode`  | ants | `ants`, `stitch` eller `farm` |
+| `count` | 300 / 10 / 6 | Antal myror (0–2000) / figurer (0–60) / fordon (0–30) |
+| `speed` | 1   | Hastighetsfaktor (myror 0.05–5, övriga 0.2–3) |
+| `size`  | 1   | Storleksfaktor (myror 0.3–4, Stitch 0.4–2.5, jordbruk 0.5–2.5) |
 | `debug` | 0   | `1` = visa fps |
 | `res`   | 1   | Andel av full upplösning, t.ex. `0.75` |
 
 Tangentbord: ↑/↓ antal, →/← hastighet, `+`/`-` storlek, `d` fps,
-`m` nästa läge, `1`/`2` välj läge. På mobil: dubbeltryck visar fps,
+`m` nästa läge, `1`–`9` välj läge. På mobil: dubbeltryck visar fps,
 trippeltryck byter läge.
+
+## Lägga till ett läge
+
+Skapa en js-fil som anropar `Projector.register({...})` (se kommentaren
+överst i `engine.js`), lägg till den i `index.html` och i
+`.github/workflows/pages.yml`, och lägg till en rad i `GameMode.kt` i appen.
 
 ## Protokoll
 
