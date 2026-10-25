@@ -19,11 +19,11 @@
  * Dessutom: prutta (de andra håller för näsan), nysa, plastspindel,
  * vattenballong och kull. Favoriter: Nils kör sin trampbil (en röd traktor)
  * och leker på magen med bondgårdsfordon; Althea leker med slime och klär ut
- * sig (prinsessa, superhjälte, älva eller pirat).
+ * sig (prinsessa, superhjälte, älva eller pirat); Vienna gillar disco.
  * Gemensamt ibland: alla äter glass på en bänk (någon tappar glassen),
  * badar i en pool, äter hamburgare på en filt (ketchup och en rap), springer
- * ute i bara strumporna, leker kurragömma, tittar på iPaden, och Ida och
- * Vienna sover över (kuddkrig först).
+ * ute i bara strumporna, leker kurragömma, tittar på iPaden, cyklar på rad
+ * (Nils i traktorn), och Ida och Vienna sover över (kuddkrig först).
  *
  * Vinklar: 0 = rakt ner, positivt = framåt (åt det håll figuren tittar),
  * PI = rakt upp. Allt i figurhöjder med höften i origo.
@@ -31,8 +31,8 @@
  * tittut, tongue, balloon, bubbles, cartwheel, spin, knock, dance, confetti,
  * wave, banana, boo, tickle, squirt, leapfrog, cushion, mustache, sleep,
  * fart, sneeze, spider, waterballoon, tag, pedalcar och farmtoys (Nils),
- * slime och dressup (Althea) – eller en gemensam stund:
- * icecream, pool, burger, sleepover, socks, hide, ipad.
+ * slime och dressup (Althea), disco (Vienna) – eller en gemensam stund:
+ * icecream, pool, burger, sleepover, socks, hide, ipad, bike.
  */
 (function () {
   'use strict';
@@ -62,7 +62,7 @@
     { name: 'Vienna', age: 7, h: 1.05, style: 'long', part: 0, longer: true, earring: true,
       hair: '#e6c77f', hairDark: '#bf9c52', skin: '#f4d0b8',
       shirt: '#f8dcdc', bottom: 'dress', cloth: '#f8dcdc', print: '#6f9ad6', barefoot: true,
-      bus: 0.1, sleep: 0.006 },
+      bus: 0.1, sleep: 0.006, fav: ['disco'] },
     { name: 'Nils', age: 3, h: 0.82, style: 'short', ears: true,
       hair: '#d9ba7c', hairDark: '#ab8a4c', skin: '#f6cfb8',
       shirt: '#c9cbcf', sleeves: 'long', bottom: 'pants', cloth: '#c9a46e', barefoot: true,
@@ -312,7 +312,7 @@
     p.lean = 0; p.tilt = 0; p.rot = 0; p.sx = 1;
     p.af1 = 0.18; p.af2 = 0.3; p.ab1 = -0.12; p.ab2 = 0.3;
     p.lf1 = 0.06; p.lf2 = -0.04; p.lb1 = -0.06; p.lb2 = -0.04;
-    p.hf = null; p.hb = null; p.front = false; p.fingers = false;
+    p.hf = null; p.hb = null; p.ff = null; p.fb = null; p.front = false; p.fingers = false;
     p.expr = 'grin'; p.item = null; p.ir = 0; p.free = 0;
   }
 
@@ -1229,7 +1229,7 @@
   // sedan börjar själva stunden (main) och till sist bleknar sakerna bort.
   var event = null;
   var eventCool = rand(15, 25);
-  var EVENTS = ['icecream', 'pool', 'burger', 'sleepover', 'socks', 'hide', 'ipad'];
+  var EVENTS = ['icecream', 'pool', 'burger', 'sleepover', 'socks', 'hide', 'ipad', 'bike'];
 
   function byName(n) {
     for (var i = 0; i < count; i++) if (figs[i].look.name === n) return figs[i];
@@ -2654,6 +2654,227 @@
     ctx.fill();
   }
 
+  // ---- cykeltur
+  // Alla cyklar på rad efter den som leder; Nils kör sin trampbilstraktor.
+  var BIKES = { Ida: '#f06595', Althea: '#9775fa', Vienna: '#22b8cf' };
+
+  EV.bike = {
+    act: 'bike',
+    setup: function (e) {
+      e.dur = 16;
+      for (var i = 0; i < e.members.length; i++) {
+        var f = e.members[i];
+        f.vehicle = f.look.name === 'Nils' ? 'tractor' : 'bike';
+        f.leader = i ? e.members[i - 1] : null;
+      }
+    },
+    start: function (e) {
+      say(e.members[0], pick(['Nu cyklar vi!', 'Följ mig!', 'Cykeltur!']), 1.8);
+      for (var i = 1; i < e.members.length; i++) say(e.members[i], pick(['Jaaa!', 'Vänta på mig!', 'Kom igen!']), 1.6);
+    },
+    update: function (e, dt) {
+      if (Math.random() < 0.3 * dt) sayOne(e, ['Pling pling!', 'Vänta på mig!', 'Snabbare!', 'Vad kul!', 'Vi är ett cykelgäng!']);
+      if (Math.random() < 0.12 * dt) {
+        var m = members(e), f = pick(m);
+        if (f) pop(f.vehicle === 'tractor' ? 'TUT TUT!' : 'PLING!', f.x + f.face * f.L * 0.4, f.y - f.L * 0.9, f.L * 0.15, '#ffd43b');
+      }
+    },
+    leave: function (f) {
+      f.vehicle = null;
+      f.leader = null;
+      setAct(f, 'walk');
+      if (Math.random() < 0.5) say(f, pick(['Vad kul att cykla!', 'Puh, nu är jag trött!']), 1.8);
+    },
+    draw: function () {}
+  };
+
+  ACT.bike = {
+    dur: 1e9,
+    start: function (f) { f.gx = f.x; f.gy = f.y; },
+    update: function (f, dt) {
+      if (!f.ev || f.ev !== event || event.ending) { f.vehicle = null; return setAct(f, 'walk'); }
+      var x = f.x, y = f.y, v = WALK * baseL * 1.5, l = f.leader;
+      while (l && (!l.alive || l.ev !== f.ev)) l = l.leader;
+      if (l) {
+        // följ den framför, en bit bakom
+        var tx = clamp(l.x - l.face * baseL * 0.95, xMin, xMax), ty = l.y;
+        var dx = tx - f.x, dy = ty - f.y, d = Math.sqrt(dx * dx + dy * dy);
+        if (d > baseL * 0.08) moveTo(f, tx, ty, v * clamp(d / baseL, 0.6, 1.6), dt);
+        else f.face = l.face;
+      } else if (moveTo(f, f.gx, f.gy, v, dt)) {
+        f.gx = clamp(f.x + (Math.random() < 0.5 ? -1 : 1) * rand(0.3, 0.6) * W, xMin, xMax);
+        f.gy = rand(yTop, yBot);
+      }
+      var d2 = Math.sqrt((f.x - x) * (f.x - x) + (f.y - y) * (f.y - y));
+      f.wheel += d2 / (0.12 * f.L);
+    },
+    pose: function (f, p) {
+      if (f.vehicle === 'tractor') return ACT.pedalcar.pose(f, p);
+      var a = f.wheel * 0.6;
+      p.free = 0.34;
+      p.lean = 0.25;
+      p.ff = ['b', 0.05 + Math.cos(a) * 0.055, 0.2 + Math.sin(a) * 0.055];
+      p.fb = ['b', 0.05 - Math.cos(a) * 0.055, 0.2 - Math.sin(a) * 0.055];
+      p.hf = ['b', 0.22, -0.1]; p.hb = ['b', 0.2, -0.09];
+      p.expr = 'laugh';
+    }
+  };
+
+  function drawBike(g, f, front) {
+    if (front) return;
+    var col = BIKES[f.look.name] || '#4dabf7', w = f.wheel, k, a;
+    g.lineWidth = 0.014;
+    g.strokeStyle = INK;
+    for (var n = 0; n < 2; n++) {
+      var cx = n ? 0.27 : -0.19, cy = 0.22;
+      g.beginPath();
+      g.arc(cx, cy, 0.115, 0, TWO_PI);
+      g.lineWidth = 0.025;
+      g.stroke();
+      g.lineWidth = 0.006;
+      g.beginPath();
+      for (k = 0; k < 4; k++) {
+        a = w + k * Math.PI / 4;
+        g.moveTo(cx - Math.cos(a) * 0.11, cy - Math.sin(a) * 0.11);
+        g.lineTo(cx + Math.cos(a) * 0.11, cy + Math.sin(a) * 0.11);
+      }
+      g.stroke();
+    }
+    // ram, sadel, styre och vevpartiet
+    g.lineWidth = 0.022;
+    g.strokeStyle = col;
+    g.beginPath();
+    g.moveTo(-0.19, 0.22);
+    g.lineTo(0.05, 0.2);
+    g.lineTo(0.22, -0.02);
+    g.lineTo(-0.02, 0.02);
+    g.lineTo(-0.19, 0.22);
+    g.moveTo(-0.02, 0.02);
+    g.lineTo(0.05, 0.2);
+    g.moveTo(0.22, -0.02);
+    g.lineTo(0.27, 0.22);
+    g.stroke();
+    g.strokeStyle = INK;
+    g.lineWidth = 0.016;
+    g.beginPath();
+    g.moveTo(0.22, -0.02);
+    g.lineTo(0.2, -0.1);
+    g.lineTo(0.25, -0.11);
+    g.stroke();
+    g.beginPath();
+    g.ellipse(-0.03, 0.0, 0.055, 0.016, 0, 0, TWO_PI);
+    g.fillStyle = INK;
+    g.fill();
+    a = w * 0.6;
+    g.beginPath();
+    g.moveTo(0.05 + Math.cos(a) * 0.055, 0.2 + Math.sin(a) * 0.055);
+    g.lineTo(0.05 - Math.cos(a) * 0.055, 0.2 - Math.sin(a) * 0.055);
+    g.lineWidth = 0.012;
+    g.stroke();
+    // korg med blomma framtill
+    if (f.look.name !== 'Vienna') {
+      g.fillStyle = '#e8c48a';
+      g.fillRect(0.24, -0.08, 0.08, 0.06);
+      g.lineWidth = 0.008;
+      g.strokeRect(0.24, -0.08, 0.08, 0.06);
+    }
+  }
+
+  // ---- disco (Vienna)
+  var DISCO = ['#ff6b6b', '#ffd43b', '#69db7c', '#4dabf7', '#da77f2', '#ff922b'];
+  ACT.disco = {
+    dur: [10, 13],
+    start: function (f) {
+      f.disco = { type: 'disco', x: f.x, y: f.y, t: 0, life: f.dur + 0.5, L: f.L };
+      props.push(f.disco);
+      say(f, pick(['Disco!', 'Nu blir det disco!', 'Musik!']), 1.6);
+      f.emit = 0;
+    },
+    update: function (f, dt) {
+      var b = f.t * 2.2;
+      f.z = Math.abs(Math.sin(b * Math.PI)) * 0.04 * f.L;
+      var nb = (b / 2) | 0;
+      if (nb !== f.k2) { f.k2 = nb; f.face = -f.face; }
+      f.emit -= dt;
+      if (f.emit <= 0) {
+        f.emit = 0.45;
+        emit('note', f.hx + rand(-1, 1) * f.L * 0.3, f.hy - f.L * 0.15, rand(-25, 25) * scale, -70 * scale, 1.6,
+          f.L * 0.1, pick(DISCO));
+      }
+      if (f.t > 1.5 && !f.k1) {
+        f.k1 = 1;
+        say(f, pick(['Dansa med mig!', 'Alla dansar!', 'Disco disco!']), 1.8);
+        for (var i = 0; i < count; i++) {
+          var g = figs[i];
+          if (g !== f && free(g) && Math.abs(g.x - f.x) < 4 * f.L && Math.random() < 0.7) {
+            setAct(g, 'dance');
+            g.k3 = 1;
+            g.dur = f.dur - f.t;
+          }
+        }
+      }
+      if (Math.random() < 0.15 * dt) say(f, pick(['Jag älskar disco!', 'Kolla mina moves!', 'Wooo!']), 1.4);
+    },
+    ownZ: true,
+    end: function (f) { f.z = 0; finish(f); },
+    pose: function (f, p) {
+      var b = f.t * 2.2, up = (b | 0) % 2 === 0;
+      // discopekning: ena armen snett upp, den andra mot höften
+      if (up) { p.af1 = 1.9; p.af2 = 0.6; p.hb = ['b', -0.07, -0.04]; }
+      else { p.af1 = 0.5; p.af2 = 0; p.ab1 = -0.5; p.ab2 = 0.3; }
+      p.lean = 0.12 * Math.sin(b * Math.PI);
+      p.lf1 = 0.25; p.lf2 = -0.3 - 0.2 * Math.abs(Math.sin(b * Math.PI)); p.lb1 = -0.15; p.lb2 = -0.2;
+      p.expr = up ? 'laugh' : 'grin';
+    }
+  };
+
+  // Discokula i en lina från taket och färgade ljusfläckar på golvet.
+  function drawDisco(ctx, pr) {
+    var L = pr.L, a = Math.min(1, pr.t * 2, (pr.life - pr.t) * 2), i;
+    var bx = pr.x, by = Math.max(L * 0.3, pr.y - L * 1.55);
+    ctx.globalAlpha = a * 0.35;
+    for (i = 0; i < 7; i++) {
+      var ang = clock * 1.5 + i * TWO_PI / 7;
+      ctx.fillStyle = DISCO[i % DISCO.length];
+      ctx.beginPath();
+      ctx.ellipse(pr.x + Math.cos(ang) * L * 0.9, pr.y + Math.sin(ang) * L * 0.18, L * 0.16, L * 0.05, 0, 0, TWO_PI);
+      ctx.fill();
+    }
+    ctx.globalAlpha = a;
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = Math.max(1, L * 0.01);
+    ctx.beginPath();
+    ctx.moveTo(bx, 0);
+    ctx.lineTo(bx, by - L * 0.12);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(bx, by, L * 0.12, 0, TWO_PI);
+    ctx.fillStyle = '#ced4da';
+    ctx.fill();
+    ctx.save();
+    ctx.clip();
+    for (i = 0; i < 12; i++) {
+      ctx.fillStyle = (i + ((clock * 6) | 0)) % 3 ? '#e9ecef' : '#fff';
+      ctx.fillRect(bx - L * 0.12 + (i % 4) * L * 0.06, by - L * 0.12 + ((i / 4) | 0) * L * 0.08, L * 0.055, L * 0.07);
+    }
+    ctx.restore();
+    ctx.beginPath();
+    ctx.arc(bx, by, L * 0.12, 0, TWO_PI);
+    ctx.stroke();
+    // ljusstrålar
+    ctx.globalAlpha = a * 0.5;
+    ctx.lineWidth = Math.max(1, L * 0.008);
+    for (i = 0; i < 6; i++) {
+      var r = clock * 2 + i;
+      ctx.strokeStyle = DISCO[i];
+      ctx.beginPath();
+      ctx.moveTo(bx, by);
+      ctx.lineTo(bx + Math.cos(r) * L * 0.5, by + Math.abs(Math.sin(r)) * L * 0.5);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
   EV.socks = {
     act: 'sockrun',
     setup: function (e) {
@@ -2779,8 +3000,10 @@
     j.ht = p.lean + p.tilt;
     j.hx = j.nx + Math.sin(j.ht) * R * 1.05;
     j.hy = j.ny - Math.cos(j.ht) * R * 1.05;
-    chain(j.lf, 0, 0, p.lf1, p.lf2, THIGH, SHIN);
-    chain(j.lb, 0, 0, p.lb1, p.lb2, THIGH, SHIN);
+    if (p.ff) reach(j.lf, 0, 0, p.ff[1], p.ff[2], THIGH, SHIN, 1);
+    else chain(j.lf, 0, 0, p.lf1, p.lf2, THIGH, SHIN);
+    if (p.fb) reach(j.lb, 0, 0, p.fb[1], p.fb[2], THIGH, SHIN, 1);
+    else chain(j.lb, 0, 0, p.lb1, p.lb2, THIGH, SHIN);
     arm(j, j.af, p.hf, p.af1, p.af2);
     arm(j, j.ab, p.hb, p.ab1, p.ab2);
 
@@ -3226,7 +3449,9 @@
     g.lineWidth = LW;
 
     if (f.costume) costumeBack(g, f);
-    if (f.vehicle && f.a === 'pedalcar') drawTractor(g, f.wheel, false);
+    if (f.vehicle && (f.a === 'pedalcar' || f.a === 'bike')) {
+      if (f.vehicle === 'bike') drawBike(g, f, false); else drawTractor(g, f.wheel, false);
+    }
     if (!p.front) arm2(g, f, j.ab);
     leg(g, f, j.lb);
 
@@ -3287,7 +3512,7 @@
       hand(g, j.af, k.skin);
     }
     if (p.item) drawItem(g, f);
-    if (f.vehicle && f.a === 'pedalcar') drawTractor(g, f.wheel, true);
+    if (f.vehicle === 'tractor' && (f.a === 'pedalcar' || f.a === 'bike')) drawTractor(g, f.wheel, true);
     if (f.bag) {
       // sovsäck över kroppen, huvudet sticker upp
       g.lineWidth = 0.012;
@@ -3729,6 +3954,8 @@
         ctx.beginPath();
         ctx.ellipse(pr.x, pr.y, pr.L * 0.06, pr.L * 0.02, 0, 0, TWO_PI);
         ctx.fill();
+      } else if (pr.type === 'disco') {
+        drawDisco(ctx, pr);
       } else if (pr.type === 'barn') {
         drawBarn(ctx, pr.x, pr.y, pr.L);
       } else if (pr.type === 'chest') {
