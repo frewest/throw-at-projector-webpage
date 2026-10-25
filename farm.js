@@ -50,7 +50,7 @@
   var patience = new Float32Array(MAX); // hur länge det väntar innan det kör (slump)
   var blocker = new Int8Array(MAX);    // fordonet som står i vägen, eller -1
   var ghost = new Float32Array(MAX);   // tid kvar då det kör igenom andra
-  var dist = new Float32Array(MAX);    // sträcka sedan förra balen
+  var dist = new Float32Array(MAX);    // sträcka kvar till nästa bal
   var puff = new Float32Array(MAX);    // tid till nästa rökpuff
   var anim = new Float32Array(MAX);    // animationsfas (haspel, hövändarens rotorer)
   var count = 0;
@@ -431,7 +431,8 @@
       draw: withTractor(mower), trail: { x: -0.27, y: 0.83, w: 0.66, stamp: grass } },
     { name: 'Skördetröska', front: 1.02, back: 1.08, half: 1.02, body: 1.0, speed: 0.65, weight: 2,
       draw: function (g, P, f) { combine(g, P, f / 20); }, pals: COMBINE_PALS, frames: 4,
-      trail: { x: -1.06, y: 0, w: 2.0, stamp: stubble }, emit: 'chaff',
+      // stubben börjar direkt bakom skärbordet, under själva tröskan
+      trail: { x: 0.68, y: 0, w: 2.0, stamp: stubble }, emit: 'chaff',
       tracks: [[0.15, -0.43, 0.09], [0.15, 0.43, 0.09], [-0.75, -0.32, 0.05], [-0.75, 0.32, 0.05]],
       exhaust: [-0.62, 0.22] }
   ];
@@ -544,7 +545,7 @@
     patience[i] = rand(1, 5);
     blocker[i] = -1;
     ghost[i] = 0;
-    dist[i] = rand(0, 2) * L;
+    dist[i] = rand(0.5, 4) * L;
     puff[i] = Math.random() * 0.3;
     anim[i] = Math.random();
   }
@@ -760,9 +761,10 @@
 
       // rundbalar
       if (T.bales) {
-        dist[i] += step;
-        if (dist[i] > 3.2 * L) {
-          dist[i] = 0;
+        dist[i] -= step;
+        if (dist[i] <= 0) {
+          // olika långt mellan balarna, som när strängen är tjock eller tunn
+          dist[i] = rand(1.8, 5.5) * L;
           world(i, -1.72, 0, tmp);
           dropBale(tmp[0], tmp[1]);
         }
