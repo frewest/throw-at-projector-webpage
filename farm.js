@@ -4,7 +4,8 @@
  * Fordonen ses uppifrån och kör i rader fram och tillbaka som vid riktigt
  * fältarbete: vid kanten vänder de (utanför bild) och kommer tillbaka i
  * raden bredvid, och efter några vändor kör de iväg och ett nytt fordon kommer.
- * Redskapen lämnar spår på ett eget spår-lager som sakta bleknar: harvad jord,
+ * Redskapen lämnar spår på ett eget spår-lager som bleknar bort efter en stund:
+ * harvad jord,
  * plogfåror, sådda rader, stubb, klippt gräs, gödselkorn och rundbalar.
  *
  * Fordonen förrenderas en gång per storlek och färg och roteras vid ritning,
@@ -19,8 +20,9 @@
   var MAXB = 80;               // rundbalar på fältet
   var BASE_L = 72;             // traktorlängd i px vid size=1 och 1080 px kortsida
   var BASE_SPEED = 90;         // px/s vid speed=1
-  var BALE_LIFE = 90;          // sekunder innan en bal bleknat bort
-  var FADE_EVERY = 2;          // sekunder mellan varje blekning av spåren
+  var BALE_LIFE = 30;          // sekunder innan en bal bleknat bort
+  var FADE_EVERY = 0.25;       // sekunder mellan varje blekning av spåren
+  var FADE_ALPHA = 0.03;       // ger spår som är borta efter ca 20-30 s
   var TWO_PI = Math.PI * 2;
   var OUTLINE = '#25272d';
   var OL = 0.012;              // konturbredd i traktorlängder
@@ -677,10 +679,17 @@
     if (fadeT >= FADE_EVERY) {
       fadeT = 0;
       tctx.setTransform(1, 0, 0, 1, 0, 0);
-      tctx.globalAlpha = 0.08;
+      tctx.globalAlpha = FADE_ALPHA;
       tctx.fillStyle = '#fff';
       tctx.fillRect(0, 0, W, H);
       tctx.globalAlpha = 1;
+      // Att blanda in vitt räcker inte hela vägen: med 8 bitar per färg
+      // fastnar svaga spår strax under vitt. Lägg därför också till ett
+      // litet konstant tillskott, så att allt till slut blir helt vitt.
+      tctx.globalCompositeOperation = 'lighter';
+      tctx.fillStyle = 'rgb(1,1,1)';
+      tctx.fillRect(0, 0, W, H);
+      tctx.globalCompositeOperation = 'source-over';
     }
   }
 
@@ -716,7 +725,7 @@
     for (var b = 0; b < bcount; b++) {
       var left = BALE_LIFE - bage[b];
       if (left <= 0) continue;
-      ctx.globalAlpha = left < 10 ? left / 10 : 1;
+      ctx.globalAlpha = left < 8 ? left / 8 : 1;
       ctx.drawImage(baleSprite, bx[b] - bs, by[b] - bs);
     }
     ctx.globalAlpha = 1;
