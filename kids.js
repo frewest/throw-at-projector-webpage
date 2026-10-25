@@ -17,19 +17,22 @@
  * Bus på en kompis: smyga fram och säga BU, kittla, vattenpistol,
  * bockhopp, pruttkudde och rita mustasch eller glasögon på den som sover.
  * Dessutom: prutta (de andra håller för näsan), nysa, plastspindel,
- * vattenballong och kull.
+ * vattenballong och kull. Favoriter: Nils kör sin trampbil (en röd traktor)
+ * och leker på magen med bondgårdsfordon; Althea leker med slime och klär ut
+ * sig (prinsessa, superhjälte, älva eller pirat).
  * Gemensamt ibland: alla äter glass på en bänk (någon tappar glassen),
  * badar i en pool, äter hamburgare på en filt (ketchup och en rap), springer
- * ute i bara strumporna, leker kurragömma, och Ida och Vienna sover över
- * (kuddkrig först).
+ * ute i bara strumporna, leker kurragömma, tittar på iPaden, och Ida och
+ * Vienna sover över (kuddkrig först).
  *
  * Vinklar: 0 = rakt ner, positivt = framåt (åt det håll figuren tittar),
  * PI = rakt upp. Allt i figurhöjder med höften i origo.
  * ?bus=namn gör att just det buset väljs om och om igen, för test. Namn:
  * tittut, tongue, balloon, bubbles, cartwheel, spin, knock, dance, confetti,
  * wave, banana, boo, tickle, squirt, leapfrog, cushion, mustache, sleep,
- * fart, sneeze, spider, waterballoon, tag – eller en gemensam stund:
- * icecream, pool, burger, sleepover, socks, hide.
+ * fart, sneeze, spider, waterballoon, tag, pedalcar och farmtoys (Nils),
+ * slime och dressup (Althea) – eller en gemensam stund:
+ * icecream, pool, burger, sleepover, socks, hide, ipad.
  */
 (function () {
   'use strict';
@@ -55,7 +58,7 @@
     { name: 'Althea', age: 5, h: 0.94, style: 'cap',
       hair: '#e3c27e', hairDark: '#b8964f', skin: '#f6d5c3', cap: '#f5a9c2', capDark: '#e07a9c',
       shirt: '#f7c8d3', sleeves: 'long', bottom: 'jeans', cloth: '#50709f', shoes: '#fbfbfb',
-      bus: 0.1, sleep: 0.008 },
+      bus: 0.1, sleep: 0.008, fav: ['slime', 'dressup'] },
     { name: 'Vienna', age: 7, h: 1.05, style: 'long', part: 0, longer: true, earring: true,
       hair: '#e6c77f', hairDark: '#bf9c52', skin: '#f4d0b8',
       shirt: '#f8dcdc', bottom: 'dress', cloth: '#f8dcdc', print: '#6f9ad6', barefoot: true,
@@ -63,13 +66,15 @@
     { name: 'Nils', age: 3, h: 0.82, style: 'short', ears: true,
       hair: '#d9ba7c', hairDark: '#ab8a4c', skin: '#f6cfb8',
       shirt: '#c9cbcf', sleeves: 'long', bottom: 'pants', cloth: '#c9a46e', barefoot: true,
-      bus: 0.09, sleep: 0.018 }
+      bus: 0.09, sleep: 0.018, fav: ['pedalcar', 'pedalcar', 'farmtoys'] }
   ];
 
   // fläckar på leopardkjolen: x, y, radie
   var SPOTS = [[-0.05, 0.01, 0.018], [0.03, 0.0, 0.016], [-0.08, 0.07, 0.02], [0.0, 0.06, 0.019],
     [0.08, 0.07, 0.018], [-0.04, 0.115, 0.017], [0.05, 0.12, 0.02], [-0.11, 0.125, 0.014],
     [0.11, 0.125, 0.014]];
+
+  LOOKS[1].bare = Object.assign({}, LOOKS[1], { style: 'long', part: 0.1 });
 
   // tryck på Viennas klänning
   var PRINT = [[-0.06, 0.03], [0.05, 0.06], [-0.1, 0.12], [0.02, 0.15], [0.12, 0.16], [-0.04, 0.2],
@@ -124,6 +129,7 @@
       x: 0, y: 0, z: 0, vz: 0, face: 1, L: baseL, spd: rand(0.85, 1.15), phase: 0,
       gx: 0, gy: 0, a: 'walk', t: 0, dur: 0, k1: 0, k2: 0, k3: 0, emit: 0, ang: 0,
       target: null, by: null, next: null, last: null, prop: null, cool: rand(1, 4),
+      costume: null, costumeT: 0, vehicle: null, wheel: 0, slimeHair: 0, slimeCol: '#7ee081', toyCol: '#2f9e44',
       ev: null, other: null, inWater: false, bag: null, sockT: 0, dirt: 0, ketchup: 0, scoop: 1,
       bites: 0, flavor: FLAVORS[i % FLAVORS.length], vx: 0,
       text: '', textT: 0, starsT: 0, wetT: 0, beard: 0, beardKind: 0, col: '#fff',
@@ -224,7 +230,9 @@
       else if (g.a === 'sleep' && g.t > 1.2 && g.t < g.dur - 3 && !g.beard) sleepers.push(g);
     }
     g = null;
+    var fav = f.look.fav || [];
     if (forced && ACT[forced]) name = forced;
+    else if (fav.length && Math.random() < 0.4) name = pick(fav);
     else if (sleepers.length && Math.random() < 0.7) name = 'mustache';
     else {
       for (i = 0; i < 3; i++) {
@@ -240,7 +248,7 @@
       if (!victims.length) return;
       g = nearest(f, victims);
       setAct(g, 'wait');
-    } else if (SOLO.indexOf(name) < 0) {
+    } else if (SOLO.indexOf(name) < 0 && fav.indexOf(name) < 0) {
       return;
     }
     f.last = name;
@@ -1221,7 +1229,7 @@
   // sedan börjar själva stunden (main) och till sist bleknar sakerna bort.
   var event = null;
   var eventCool = rand(15, 25);
-  var EVENTS = ['icecream', 'pool', 'burger', 'sleepover', 'socks', 'hide'];
+  var EVENTS = ['icecream', 'pool', 'burger', 'sleepover', 'socks', 'hide', 'ipad'];
 
   function byName(n) {
     for (var i = 0; i < count; i++) if (figs[i].look.name === n) return figs[i];
@@ -2156,6 +2164,496 @@
     }
   };
 
+  // ---- favoritlekar
+  // Nils kör sin trampbil (en röd traktor) och leker på magen med sina
+  // bondgårdsfordon; Althea leker med slime och klär ut sig.
+
+  ACT.pedalcar = {
+    dur: [12, 16],
+    start: function (f) {
+      f.vehicle = 'tractor';
+      f.gx = f.x; f.gy = f.y;
+      say(f, pick(['Brum brum! Jag kör traktor!', 'Nu kör jag min traktor!']), 2);
+    },
+    update: function (f, dt) {
+      var x = f.x, y = f.y;
+      if (moveTo(f, f.gx, f.gy, WALK * baseL * 1.3, dt)) newGoal(f);
+      var d = Math.sqrt((f.x - x) * (f.x - x) + (f.y - y) * (f.y - y));
+      f.wheel += d / (0.13 * f.L);
+      if (Math.random() < 0.15 * dt) say(f, pick(['Brum brum!', 'Tut tut!', 'Akta er, här kommer jag!', 'Jag är bonde!']), 1.4);
+      if (Math.random() < 0.06 * dt) pop('TUT TUT!', f.x + f.face * f.L * 0.4, f.y - f.L * 0.7, f.L * 0.16, '#ff6b6b');
+    },
+    end: function (f) {
+      f.vehicle = null;
+      props.push({ type: 'tractor', x: f.x, y: f.y, t: 0, life: 6, L: f.L, face: f.face, wheel: f.wheel });
+      say(f, pick(['Nu parkerar jag!', 'Traktorn ska vila.']), 1.6);
+      finish(f);
+    },
+    pose: function (f, p) {
+      var a = f.wheel * 0.5;
+      p.free = 0.2;
+      p.lean = 0.1;
+      p.lf1 = 1.25 + 0.25 * Math.sin(a); p.lf2 = -1.2 - 0.35 * Math.sin(a);
+      p.lb1 = 1.25 - 0.25 * Math.sin(a); p.lb2 = -1.2 + 0.35 * Math.sin(a);
+      p.hf = ['b', 0.15, -0.14]; p.hb = ['b', 0.13, -0.13];
+      p.expr = 'laugh';
+    }
+  };
+
+  ACT.farmtoys = {
+    dur: [12, 16],
+    start: function (f) {
+      f.toyCol = pick(['#2f9e44', '#e03131']);
+      props.push({ type: 'barn', x: clamp(f.x + f.face * f.L * 1.5, xMin, xMax), y: f.y + 2, t: 0, life: f.dur + 1, L: f.L });
+      say(f, pick(['Jag leker med traktorerna!', 'Nu ska vi köra till ladan!']), 2);
+    },
+    update: function (f, dt) {
+      if (f.t > 1 && f.t < f.dur - 1 && Math.random() < 0.25 * dt) {
+        say(f, pick(['Brrrm!', 'Muuu!', 'Traktorn kör till ladan!', 'Nu skördar vi!', 'Tuut!']), 1.4);
+      }
+    },
+    pose: function (f, p) {
+      var t = f.t, end = f.dur - 0.9;
+      var u = t < 0.9 ? ease(t / 0.9) : t < end ? 1 : 1 - ease((t - end) / 0.9);
+      // på magen, uppstödd på armbågarna, sparkar med benen
+      p.rot = Math.PI / 2 * u;
+      p.lean = -0.6 * u;
+      p.tilt = (-Math.PI / 2 + 0.6) * u;
+      p.lf1 = 0.05; p.lb1 = -0.03;
+      p.lf2 = (-1.3 - 0.5 * Math.sin(clock * 4)) * u;
+      p.lb2 = (-1.1 - 0.5 * Math.sin(clock * 4 + Math.PI)) * u;
+      if (u > 0.6) {
+        p.hf = ['b', 0.04, -0.5 - 0.12 * Math.sin(clock * 3)];
+        p.hb = ['b', 0.05, -0.38];
+      }
+      p.expr = u > 0.6 ? (Math.sin(clock * 2) > 0 ? 'laugh' : 'grin') : 'grin';
+    }
+  };
+
+  var SLIMES = ['#7ee081', '#ff8fd8', '#b197fc', '#66d9e8'];
+  ACT.slime = {
+    dur: [9, 12],
+    start: function (f) {
+      f.slimeCol = pick(SLIMES);
+      say(f, pick(['Slime!', 'Kolla min slime!', 'Jag gör slime!']), 1.6);
+    },
+    update: function (f) {
+      if (f.t > 3 && !f.k1) { f.k1 = 1; say(f, pick(['Den är så kladdig!', 'Kolla vad lång den blir!', 'Den glittrar!']), 1.8); }
+      if (f.t > 6.5 && !f.k2) {
+        f.k2 = 1;
+        if (Math.random() < 0.45) {
+          f.slimeHair = 18;
+          pop('SPLOTT!', f.hx, f.hy - f.hr * 1.5, f.L * 0.16, f.slimeCol);
+          say(f, pick(['Oj! Slime i håret!', 'Neeej, den fastnade i håret!']), 2);
+        }
+      }
+    },
+    pose: function (f, p) {
+      sitPose(p);
+      p.lean = 0.15;
+      var s = Math.sin(f.t * 2.2);
+      p.hf = ['b', 0.32 + 0.1 * s, -0.12 - 0.05 * s];
+      p.hb = ['b', 0.12, -0.08];
+      p.item = f.k2 && f.slimeHair > 0 && f.t < 8 ? null : 'slime';
+      p.expr = s > 0.3 ? 'laugh' : 'grin';
+      if (f.slimeHair > 0 && f.t < 8.5) { p.hf = ['h', 0.6, -1.2]; p.expr = 'scared'; }
+    }
+  };
+
+  var COSTUMES = {
+    princess: { hat: true, lines: ['Jag är en prinsessa!', 'Kolla min klänning!', 'Buga för prinsessan!'] },
+    hero: { hat: false, lines: ['Jag är en superhjälte!', 'Jag kan flyga!', 'Supersnabb!'] },
+    fairy: { hat: false, lines: ['Jag är en älva!', 'Pling! Nu trollar jag!', 'Älvstoft!'] },
+    pirate: { hat: true, lines: ['Arrr! Jag är en pirat!', 'Var är skatten?', 'Arrr!'] }
+  };
+
+  ACT.dressup = {
+    dur: 3.2,
+    start: function (f) {
+      f.chest = { type: 'chest', x: clamp(f.x + f.face * f.L * 0.38, xMin, xMax), y: f.y + 2, t: 0, life: 5, L: f.L };
+      props.push(f.chest);
+      say(f, pick(['Utklädningslådan!', 'Vad ska jag klä ut mig till?']), 1.4);
+    },
+    update: function (f) {
+      if (f.t < 1.4 && Math.random() < 0.25) {
+        emit('shred', f.chest.x, f.chest.y - f.L * 0.2, rand(-1, 1) * 200 * scale, -rand(250, 450) * scale,
+          rand(0.6, 1), f.L * 0.03, pick(CONFETTI));
+      }
+      if (f.t > 1.5 && !f.k1) {
+        f.k1 = 1;
+        var keys = Object.keys(COSTUMES);
+        f.costume = pick(keys.filter(function (c) { return c !== f.costume; }));
+        f.costumeT = 25;
+        pop('POFF!', f.x, f.y - f.L * 0.6, f.L * 0.22, '#e599f7');
+        for (var i = 0; i < 8; i++) {
+          emit('cloud', f.x + rand(-0.3, 0.3) * f.L, f.y - f.L * rand(0.1, 0.8), rand(-30, 30) * scale, -rand(10, 40) * scale,
+            rand(0.6, 1), f.L * rand(0.08, 0.14), '');
+        }
+        say(f, COSTUMES[f.costume].lines[0], 2);
+      }
+      if (f.t > 2.6 && !f.k2) {
+        f.k2 = 1;
+        var list = [];
+        for (i = 0; i < count; i++) if (figs[i] !== f && free(figs[i])) list.push(figs[i]);
+        var g = nearest(f, list);
+        if (g) say(g, pick(['Vad fin du är, ' + f.look.name + '!', 'Coolt!', 'Wow!']), 1.8);
+      }
+    },
+    pose: function (f, p) {
+      if (f.t < 1.5) {
+        p.lean = 0.85;
+        p.lf1 = 0.3; p.lf2 = -0.5;
+        p.af1 = 0.9 + 0.3 * Math.sin(f.t * 14); p.ab1 = 0.7 + 0.3 * Math.sin(f.t * 12 + 1);
+        p.expr = 'sneaky';
+      } else {
+        armsUp(p);
+        p.expr = 'laugh';
+      }
+    }
+  };
+
+  // ---- iPad
+  // Alla sätter sig och tittar på iPaden; på skärmen hoppar en blå figur.
+  EV.ipad = {
+    act: 'ipad',
+    setup: function (e) {
+      var n = e.members.length;
+      e.dir = Math.random() < 0.5 ? 1 : -1;
+      e.y = rand(lerp(yTop, yBot, 0.35), lerp(yTop, yBot, 0.8));
+      e.x = e.dir > 0 ? clamp(rand(xMin, xMax), xMin + baseL * (1 + 0.45 * n), xMax - baseL * 0.4)
+        : clamp(rand(xMin, xMax), xMin + baseL * 0.4, xMax - baseL * (1 + 0.45 * n));
+      e.dur = 14;
+      for (var i = 0; i < n; i++) {
+        e.spots.push([e.x - e.dir * baseL * (0.55 + 0.42 * i), e.y + (i % 2 ? 0.14 : -0.06) * baseL, e.dir]);
+      }
+    },
+    start: function (e) { sayOne(e, ['iPad!', 'Vi tittar på iPaden!', 'Sätt på Stitch!']); },
+    update: function (e, dt) {
+      if (Math.random() < 0.35 * dt) {
+        sayOne(e, ['Kolla!', 'Haha, titta!', 'Min tur!', 'Stitch!', 'Spela igen!', 'Jag vill välja!', 'Shhh, jag tittar!']);
+      }
+    },
+    draw: function (ctx, e, a) {
+      var L = depthL(e.y), w = L * 0.42, h = L * 0.3, x = e.x - w / 2, y = e.y - h - L * 0.06;
+      ctx.globalAlpha = a;
+      ctx.lineWidth = Math.max(1, L * 0.012);
+      ctx.strokeStyle = INK;
+      // stöd
+      ctx.beginPath();
+      ctx.moveTo(e.x - e.dir * w * 0.15, e.y);
+      ctx.lineTo(e.x, y + h);
+      ctx.stroke();
+      // skärmens sken
+      ctx.fillStyle = 'rgba(120, 190, 255, 0.18)';
+      ctx.beginPath();
+      ctx.ellipse(e.x - e.dir * w * 0.6, y + h * 0.5, w * 1.1, h * 1.1, 0, 0, TWO_PI);
+      ctx.fill();
+      roundRect(ctx, x, y, w, h, L * 0.03);
+      ctx.fillStyle = '#2b2b33';
+      ctx.fill();
+      ctx.stroke();
+      var m = L * 0.02;
+      ctx.fillStyle = '#9bd4ff';
+      ctx.fillRect(x + m, y + m, w - 2 * m, h - 2 * m);
+      // tecknad film: en blå figur som hoppar
+      var bx = x + w / 2 + Math.sin(clock * 1.7) * w * 0.25, by = y + h * 0.62 - Math.abs(Math.sin(clock * 4)) * h * 0.25;
+      ctx.fillStyle = '#7ec97a';
+      ctx.fillRect(x + m, y + h * 0.75, w - 2 * m, h * 0.25 - m);
+      ctx.fillStyle = '#4c7fe0';
+      ctx.beginPath();
+      ctx.arc(bx, by, h * 0.13, 0, TWO_PI);
+      ctx.ellipse(bx - h * 0.13, by - h * 0.1, h * 0.05, h * 0.11, -0.6, 0, TWO_PI);
+      ctx.ellipse(bx + h * 0.13, by - h * 0.1, h * 0.05, h * 0.11, 0.6, 0, TWO_PI);
+      ctx.fill();
+      ctx.fillStyle = INK;
+      ctx.beginPath();
+      ctx.arc(bx - h * 0.04, by - h * 0.02, h * 0.025, 0, TWO_PI);
+      ctx.arc(bx + h * 0.04, by - h * 0.02, h * 0.025, 0, TWO_PI);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  };
+
+  ACT.ipad = {
+    dur: 1e9,
+    update: function (f) { if (!f.ev || f.ev !== event || event.ending) setAct(f, 'walk'); },
+    pose: function (f, p) {
+      sitPose(p);
+      p.lean = 0.12;
+      p.hf = ['b', 0.2, -0.05]; p.hb = ['b', 0.17, -0.04];
+      var c = Math.sin(clock * 0.9 + f.i * 1.7);
+      p.expr = c > 0.5 ? 'laugh' : c > -0.4 ? 'grin' : 'o';
+      if (Math.sin(clock * 0.5 + f.i * 2.3) > 0.93) { p.hf = ['b', 0.5, -0.1]; }  // pekar på skärmen
+    }
+  };
+
+  // ---- ritning: fordon, utklädnad, leksaker
+  function drawTractor(g, wheel, front) {
+    g.lineWidth = 0.012;
+    g.strokeStyle = INK;
+    if (!front) {
+      // stort bakhjul med skärm
+      g.beginPath();
+      g.arc(-0.05, 0.07, 0.13, 0, TWO_PI);
+      g.fillStyle = '#2b2b33';
+      g.fill();
+      g.stroke();
+      g.beginPath();
+      g.arc(-0.05, 0.07, 0.065, 0, TWO_PI);
+      g.fillStyle = '#ffd43b';
+      g.fill();
+      g.stroke();
+      g.beginPath();
+      for (var k = 0; k < 3; k++) {
+        var a = wheel + k * Math.PI / 3;
+        g.moveTo(-0.05 - Math.cos(a) * 0.065, 0.07 - Math.sin(a) * 0.065);
+        g.lineTo(-0.05 + Math.cos(a) * 0.065, 0.07 + Math.sin(a) * 0.065);
+      }
+      g.stroke();
+      g.beginPath();
+      g.arc(-0.05, 0.07, 0.16, Math.PI * 1.05, Math.PI * 1.75);
+      g.lineWidth = 0.035;
+      g.strokeStyle = INK;
+      g.stroke();
+      g.lineWidth = 0.022;
+      g.strokeStyle = '#e03131';
+      g.stroke();
+      g.lineWidth = 0.012;
+      g.strokeStyle = INK;
+      return;
+    }
+    // motorhuv, avgasrör, ratt och framhjul
+    roundRect(g, 0.04, -0.05, 0.44, 0.16, 0.04);
+    g.fillStyle = '#e03131';
+    g.fill();
+    g.stroke();
+    g.fillStyle = '#fff';
+    g.fillRect(0.42, -0.02, 0.04, 0.08);
+    g.beginPath();
+    g.moveTo(0.36, -0.05);
+    g.lineTo(0.36, -0.15);
+    g.lineWidth = 0.025;
+    g.stroke();
+    g.beginPath();
+    g.moveTo(0.18, -0.05);
+    g.lineTo(0.13, -0.14);
+    g.lineWidth = 0.016;
+    g.stroke();
+    g.beginPath();
+    g.ellipse(0.13, -0.145, 0.045, 0.014, -0.3, 0, TWO_PI);
+    g.fillStyle = INK;
+    g.fill();
+    g.lineWidth = 0.012;
+    g.beginPath();
+    g.arc(0.38, 0.13, 0.07, 0, TWO_PI);
+    g.fillStyle = '#2b2b33';
+    g.fill();
+    g.stroke();
+    g.beginPath();
+    g.arc(0.38, 0.13, 0.03, 0, TWO_PI);
+    g.fillStyle = '#ffd43b';
+    g.fill();
+  }
+
+  function costumeBack(g, f) {
+    var p = f.p;
+    g.save();
+    g.rotate(p.lean);
+    g.lineWidth = 0.012;
+    g.strokeStyle = INK;
+    if (f.costume === 'hero') {
+      var fl = Math.sin(clock * 8 + f.i) * 0.03 + (f.a === 'walk' ? 0.08 : 0);
+      g.beginPath();
+      g.moveTo(-0.02, -0.23);
+      g.lineTo(0.03, -0.23);
+      g.quadraticCurveTo(-0.02, 0.0, -0.12 - fl, 0.16);
+      g.lineTo(-0.26 - fl * 2, 0.12);
+      g.quadraticCurveTo(-0.12, -0.05, -0.02, -0.23);
+      g.fillStyle = '#e03131';
+      g.fill();
+      g.stroke();
+    } else if (f.costume === 'fairy') {
+      var w = 0.8 + 0.2 * Math.sin(clock * 14);
+      g.fillStyle = 'rgba(165, 216, 255, 0.75)';
+      g.beginPath();
+      g.ellipse(-0.17, -0.3, 0.17 * w, 0.09, -0.7, 0, TWO_PI);
+      g.fill();
+      g.stroke();
+      g.beginPath();
+      g.ellipse(-0.14, -0.12, 0.12 * w, 0.065, 0.6, 0, TWO_PI);
+      g.fill();
+      g.stroke();
+    }
+    g.restore();
+  }
+
+  // Huvudbonader och mask ritas i huvudradier efter håret.
+  function costumeHead(g, f) {
+    var c = f.costume;
+    g.lineWidth = 0.1;
+    g.strokeStyle = INK;
+    if (c === 'princess') {
+      g.beginPath();
+      g.moveTo(-0.55, -0.85);
+      g.lineTo(-0.6, -1.35);
+      g.lineTo(-0.3, -1.08);
+      g.lineTo(0, -1.45);
+      g.lineTo(0.3, -1.08);
+      g.lineTo(0.6, -1.35);
+      g.lineTo(0.55, -0.85);
+      g.closePath();
+      g.fillStyle = '#ffd43b';
+      g.fill();
+      g.stroke();
+      g.fillStyle = '#e64980';
+      g.beginPath();
+      g.arc(0, -1.05, 0.09, 0, TWO_PI);
+      g.fill();
+    } else if (c === 'pirate') {
+      g.beginPath();
+      g.moveTo(-1.35, -0.7);
+      g.quadraticCurveTo(0, -0.5, 1.35, -0.7);
+      g.quadraticCurveTo(1.0, -1.1, 0.6, -0.95);
+      g.quadraticCurveTo(0, -1.7, -0.6, -0.95);
+      g.quadraticCurveTo(-1.0, -1.1, -1.35, -0.7);
+      g.fillStyle = '#25262b';
+      g.fill();
+      g.stroke();
+      g.fillStyle = '#fff';
+      g.beginPath();
+      g.arc(0, -0.95, 0.13, 0, TWO_PI);
+      g.fill();
+      // ögonlapp
+      g.beginPath();
+      g.moveTo(-0.95, -0.45);
+      g.lineTo(0.95, 0.05);
+      g.lineWidth = 0.05;
+      g.stroke();
+      g.beginPath();
+      g.ellipse(0.36, -0.08, 0.2, 0.18, 0, 0, TWO_PI);
+      g.fillStyle = '#25262b';
+      g.fill();
+    } else if (c === 'hero') {
+      // mask med ögonhål
+      roundRect(g, -0.75, -0.3, 1.5, 0.38, 0.15);
+      g.fillStyle = '#e03131';
+      g.fill();
+      for (var s = -1; s <= 1; s += 2) {
+        g.beginPath();
+        g.ellipse(s * 0.36, -0.1, 0.15, 0.11, 0, 0, TWO_PI);
+        g.fillStyle = '#fff';
+        g.fill();
+        g.beginPath();
+        g.arc(s * 0.36, -0.09, 0.07, 0, TWO_PI);
+        g.fillStyle = INK;
+        g.fill();
+      }
+    } else if (c === 'fairy') {
+      var cols = ['#ff8fab', '#ffd43b', '#b197fc', '#ff8fab', '#ffd43b'];
+      for (var i = 0; i < 5; i++) {
+        g.beginPath();
+        g.arc(-0.7 + i * 0.35, -0.92 - Math.sin(i / 4 * Math.PI) * 0.18, 0.15, 0, TWO_PI);
+        g.fillStyle = cols[i];
+        g.fill();
+      }
+    }
+    if (f.slimeHair > 0) {
+      g.beginPath();
+      g.ellipse(0.45, -0.95, 0.35, 0.22, 0.3, 0, TWO_PI);
+      g.moveTo(0.6, -0.8);
+      g.ellipse(0.6, -0.65, 0.07, 0.18, 0, 0, TWO_PI);
+      g.fillStyle = f.slimeCol;
+      g.fill();
+    }
+  }
+
+  function drawGown(g) {
+    skirtPath(g, 0.42, 0.21);
+    g.fillStyle = '#ff9ad5';
+    g.fill();
+    g.stroke();
+    g.fillStyle = '#fff';
+    for (var i = 0; i < 6; i++) {
+      g.beginPath();
+      g.arc(-0.12 + i * 0.05, 0.12 + (i % 2) * 0.12 + i * 0.03, 0.01, 0, TWO_PI);
+      g.fill();
+    }
+  }
+
+  // Leksakstraktorn i Nils hand och en släpvagn bakom, ritade upprätt i världen.
+  function drawToy(ctx, f) {
+    var x = f.wh[0], y = f.y - f.L * 0.01, s = f.L * 0.09, d = f.face;
+    ctx.lineWidth = Math.max(1, s * 0.08);
+    ctx.strokeStyle = INK;
+    // släp
+    ctx.fillStyle = '#ffd43b';
+    ctx.fillRect(x - d * s * 1.6 - s * 0.5, y - s * 0.6, s, s * 0.35);
+    ctx.strokeRect(x - d * s * 1.6 - s * 0.5, y - s * 0.6, s, s * 0.35);
+    ctx.beginPath();
+    ctx.moveTo(x - d * s * 0.6, y - s * 0.3);
+    ctx.lineTo(x - d * s * 1.1, y - s * 0.35);
+    ctx.stroke();
+    ctx.fillStyle = f.toyCol;
+    ctx.fillRect(x - s * 0.6, y - s * 0.75, s * 1.2, s * 0.45);
+    ctx.strokeRect(x - s * 0.6, y - s * 0.75, s * 1.2, s * 0.45);
+    ctx.fillRect(x - d * s * 0.5 - s * 0.15, y - s * 1.15, s * 0.45, s * 0.42);
+    ctx.strokeRect(x - d * s * 0.5 - s * 0.15, y - s * 1.15, s * 0.45, s * 0.42);
+    ctx.fillStyle = '#2b2b33';
+    ctx.beginPath();
+    ctx.arc(x - d * s * 0.35, y - s * 0.28, s * 0.28, 0, TWO_PI);
+    ctx.arc(x + d * s * 0.42, y - s * 0.17, s * 0.17, 0, TWO_PI);
+    ctx.arc(x - d * s * 1.4, y - s * 0.18, s * 0.17, 0, TWO_PI);
+    ctx.fill();
+  }
+
+  function drawBarn(ctx, x, y, L) {
+    var w = L * 0.36, h = L * 0.26;
+    ctx.lineWidth = Math.max(1, L * 0.01);
+    ctx.strokeStyle = INK;
+    ctx.fillStyle = '#c92a2a';
+    ctx.fillRect(x - w / 2, y - h, w, h);
+    ctx.strokeRect(x - w / 2, y - h, w, h);
+    ctx.beginPath();
+    ctx.moveTo(x - w * 0.6, y - h);
+    ctx.lineTo(x, y - h * 1.7);
+    ctx.lineTo(x + w * 0.6, y - h);
+    ctx.closePath();
+    ctx.fillStyle = '#495057';
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x - w * 0.15, y - h * 0.6, w * 0.3, h * 0.6);
+    ctx.strokeRect(x - w * 0.15, y - h * 0.6, w * 0.3, h * 0.6);
+    ctx.beginPath();
+    ctx.moveTo(x - w * 0.15, y - h * 0.6);
+    ctx.lineTo(x + w * 0.15, y);
+    ctx.moveTo(x + w * 0.15, y - h * 0.6);
+    ctx.lineTo(x - w * 0.15, y);
+    ctx.stroke();
+  }
+
+  function drawChest(ctx, x, y, L) {
+    var w = L * 0.42, h = L * 0.24;
+    ctx.lineWidth = Math.max(1, L * 0.012);
+    ctx.strokeStyle = INK;
+    ctx.fillStyle = '#9c36b5';
+    ctx.fillRect(x - w / 2, y - h, w, h);
+    ctx.strokeRect(x - w / 2, y - h, w, h);
+    // öppet lock
+    ctx.beginPath();
+    ctx.moveTo(x - w / 2, y - h);
+    ctx.lineTo(x - w * 0.4, y - h * 1.9);
+    ctx.lineTo(x + w * 0.6, y - h * 1.9);
+    ctx.lineTo(x + w / 2, y - h);
+    ctx.fillStyle = '#be4bdb';
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#ffd43b';
+    ctx.beginPath();
+    ctx.arc(x, y - h * 0.55, L * 0.025, 0, TWO_PI);
+    ctx.fill();
+  }
+
   EV.socks = {
     act: 'sockrun',
     setup: function (e) {
@@ -2325,6 +2823,12 @@
     if (f.starsT > 0) f.starsT -= dt;
     if (f.beard > 0) f.beard -= dt;
     if (f.ketchup > 0) f.ketchup -= dt;
+    if (f.slimeHair > 0) f.slimeHair -= dt;
+    if (f.costumeT > 0) {
+      f.costumeT -= dt;
+      if (f.costumeT <= 0) f.costume = null;
+      else if (f.a === 'walk' && Math.random() < 0.04 * dt) say(f, pick(COSTUMES[f.costume].lines), 1.8);
+    }
     if (f.wetT > 0) {
       f.wetT -= dt;
       if (Math.random() < 5 * dt) {
@@ -2534,7 +3038,9 @@
   function lowerClothes(g, f) {
     var k = f.look, i, s;
     g.lineWidth = 0.012;
-    if (k.bottom === 'leopard') {
+    if (f.costume === 'princess') {
+      drawGown(g);
+    } else if (k.bottom === 'leopard') {
       skirtPath(g, 0.14, 0.125);
       g.fillStyle = '#ecdcc6';
       g.fill();
@@ -2663,6 +3169,28 @@
         g.fill();
         g.stroke();
         break;
+      case 'slime': {
+        var bx = j.ab[2], by = j.ab[3], sag = 0.04 + 0.5 * Math.abs(hx - bx) * 0.3;
+        g.beginPath();
+        g.moveTo(bx, by);
+        g.quadraticCurveTo((bx + hx) / 2, (by + hy) / 2 + sag, hx, hy);
+        g.lineWidth = 0.05;
+        g.strokeStyle = f.slimeCol;
+        g.stroke();
+        g.beginPath();
+        g.arc(bx, by, 0.035, 0, TWO_PI);
+        g.arc(hx, hy, 0.03, 0, TWO_PI);
+        g.fillStyle = f.slimeCol;
+        g.fill();
+        g.fillStyle = '#fff';
+        for (var q = 1; q < 4; q++) {
+          g.beginPath();
+          g.arc(lerp(bx, hx, q / 4), lerp(by, hy, q / 4) + sag * 0.5, 0.006, 0, TWO_PI);
+          g.fill();
+        }
+        g.strokeStyle = INK;
+        break;
+      }
       case 'marker':
         g.beginPath();
         g.moveTo(hx - 0.01, hy - 0.03);
@@ -2697,6 +3225,8 @@
     g.strokeStyle = INK;
     g.lineWidth = LW;
 
+    if (f.costume) costumeBack(g, f);
+    if (f.vehicle && f.a === 'pedalcar') drawTractor(g, f.wheel, false);
     if (!p.front) arm2(g, f, j.ab);
     leg(g, f, j.lb);
 
@@ -2757,6 +3287,7 @@
       hand(g, j.af, k.skin);
     }
     if (p.item) drawItem(g, f);
+    if (f.vehicle && f.a === 'pedalcar') drawTractor(g, f.wheel, true);
     if (f.bag) {
       // sovsäck över kroppen, huvudet sticker upp
       g.lineWidth = 0.012;
@@ -2781,7 +3312,7 @@
   // ---------------------------------------------------------------- ritning: huvud
   // Huvudet ritas i huvudradier: mitten i origo, ansiktet mot betraktaren.
   function drawHead(g, f, ex) {
-    var k = f.look;
+    var k = f.costume && COSTUMES[f.costume].hat && f.look.style === 'cap' ? f.look.bare : f.look;
     g.strokeStyle = INK;
     g.lineWidth = 0.15;
     hairBack(g, k);
@@ -2830,6 +3361,7 @@
     }
     g.lineWidth = 0.15;
     hairFront(g, k);
+    if (f.costume || f.slimeHair > 0) costumeHead(g, f);
     if (k.earring) {
       g.beginPath();
       g.arc(0.9, 0.42, 0.07, 0, TWO_PI);
@@ -3197,6 +3729,17 @@
         ctx.beginPath();
         ctx.ellipse(pr.x, pr.y, pr.L * 0.06, pr.L * 0.02, 0, 0, TWO_PI);
         ctx.fill();
+      } else if (pr.type === 'barn') {
+        drawBarn(ctx, pr.x, pr.y, pr.L);
+      } else if (pr.type === 'chest') {
+        drawChest(ctx, pr.x, pr.y, pr.L);
+      } else if (pr.type === 'tractor') {
+        ctx.save();
+        ctx.translate(pr.x, pr.y - pr.L * 0.2);
+        ctx.scale(pr.face * pr.L, pr.L);
+        drawTractor(ctx, pr.wheel, false);
+        drawTractor(ctx, pr.wheel, true);
+        ctx.restore();
       } else if (pr.type === 'spider') {
         drawSpider(ctx, pr.x, pr.y - pr.L * 0.03, pr.L * 0.05);
       } else {
@@ -3419,7 +3962,11 @@
     drawProps(ctx);
     for (i = 0; i < count; i++) {
       f = sorted[i];
-      if (!f.inWater) { drawFig(ctx, f); continue; }
+      if (!f.inWater) {
+        drawFig(ctx, f);
+        if (f.a === 'farmtoys' && f.p.hf) drawToy(ctx, f);
+        continue;
+      }
       // badande: bara det som är ovanför vattenytan syns
       var wl = f.y - f.L * 0.36;
       ctx.save();
@@ -3452,7 +3999,7 @@
       var f = figs[i];
       release(f);
       f.by = null;
-      f.ev = null; f.inWater = false; f.bag = null; f.sockT = 0;
+      f.ev = null; f.inWater = false; f.bag = null; f.sockT = 0; f.vehicle = null;
       place(f);
     }
   }
