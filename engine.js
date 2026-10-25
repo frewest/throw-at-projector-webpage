@@ -13,8 +13,9 @@
  *   layout(world, settings)   – (om)bygg sprites; world = {W, H, scale}
  *   setCount(n), scatter(), update(dt), draw(ctx)
  *   release()                 – valfri, släpp minne när läget lämnas
+ *   command(cmd)              – valfri, tar emot {"cmd": ...} från appen
  *
- * Publikt API: window.Projector.apply({mode, count, speed, size, debug})
+ * Publikt API: window.Projector.apply({mode, count, speed, size, debug, cmd})
  *              window.Projector.getState()
  * "ants" accepteras som alias för "count" (äldre versioner av appen).
  * Ett läge som inte är laddat hämtas från <mode>.js; när det är klart
@@ -165,6 +166,8 @@
       if (hud) hud.style.display = debug ? 'block' : 'none';
     }
     if (relayout && mode === m) m.layout(world, s);
+    // kommandon till det aktiva läget, t.ex. styrning från appen
+    if (cfg.cmd != null && mode === m && m.command) m.command(cfg.cmd);
 
     var n = cfg.count != null ? cfg.count : cfg.ants;
     if (n != null && isFinite(+n)) {

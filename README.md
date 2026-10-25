@@ -69,3 +69,17 @@ Namespace `urn:x-cast:com.throwatprojector.ants`, JSON:
 ```
 
 Utan `mode` gäller värdena det aktiva läget; `ants` är alias för `count`.
+
+`cmd` skickas vidare till det aktiva läget. Kids förstår:
+
+```json
+{"cmd": {"event": "pool"}}
+{"cmd": {"do": "balloon", "kid": "Ida"}}
+{"cmd": {"steer": [1, -0.3], "kid": "Nils"}}
+{"cmd": {"jump": true, "kid": "Nils"}}
+{"cmd": {"release": "Nils"}}
+```
+
+`event` startar en gemensam stund direkt, `do` låter ett barn (eller ett slumpat)
+göra ett bus, `steer` styr barnet (x och y i -1..1, skickas om medan man styr;
+efter 10 sekunder utan kommando går barnet tillbaka till att leka själv).

@@ -221,7 +221,7 @@
     }
   }
 
-  function prank(f) {
+  function prank(f, want) {
     var victims = [], sleepers = [], i, g, name;
     for (i = 0; i < count; i++) {
       g = figs[i];
@@ -231,7 +231,8 @@
     }
     g = null;
     var fav = f.look.fav || [];
-    if (forced && ACT[forced]) name = forced;
+    if (want) name = want;
+    else if (forced && ACT[forced]) name = forced;
     else if (fav.length && Math.random() < 0.4) name = pick(fav);
     else if (sleepers.length && Math.random() < 0.7) name = 'mustache';
     else {
@@ -248,7 +249,7 @@
       if (!victims.length) return;
       g = nearest(f, victims);
       setAct(g, 'wait');
-    } else if (SOLO.indexOf(name) < 0 && fav.indexOf(name) < 0) {
+    } else if (SOLO.indexOf(name) < 0 && fav.indexOf(name) < 0 && !want) {
       return;
     }
     f.last = name;
@@ -3449,7 +3450,7 @@
     g.lineWidth = LW;
 
     if (f.costume) costumeBack(g, f);
-    if (f.vehicle && (f.a === 'pedalcar' || f.a === 'bike')) {
+    if (f.vehicle && (f.a === 'pedalcar' || f.a === 'bike' || f.a === 'steer')) {
       if (f.vehicle === 'bike') drawBike(g, f, false); else drawTractor(g, f.wheel, false);
     }
     if (!p.front) arm2(g, f, j.ab);
@@ -3512,7 +3513,7 @@
       hand(g, j.af, k.skin);
     }
     if (p.item) drawItem(g, f);
-    if (f.vehicle === 'tractor' && (f.a === 'pedalcar' || f.a === 'bike')) drawTractor(g, f.wheel, true);
+    if (f.vehicle === 'tractor' && (f.a === 'pedalcar' || f.a === 'bike' || f.a === 'steer')) drawTractor(g, f.wheel, true);
     if (f.bag) {
       // sovsäck över kroppen, huvudet sticker upp
       g.lineWidth = 0.012;
@@ -4207,8 +4208,111 @@
     if (event && EV[event.type].drawFront) EV[event.type].drawFront(ctx, event, Math.min(event.fade, event.t * 2));
     drawParts(ctx);
     for (i = 0; i < count; i++) if (sorted[i].starsT > 0) drawStars(ctx, sorted[i]);
+    for (i = 0; i < count; i++) if (sorted[i].a === 'steer') drawSteerMark(ctx, sorted[i]);
     drawBubbles(ctx);
     drawPops(ctx);
+  }
+
+  // ---------------------------------------------------------------- styrning från appen
+  // {"cmd": {"event": "pool"}}                – starta en gemensam stund nu
+  // {"cmd": {"do": "balloon", "kid": "Ida"}}  – barnet (eller ett slumpat) gör ett bus
+  // {"cmd": {"steer": [x, y], "kid": "Nils"}} – styr barnet, x och y i -1..1
+  // {"cmd": {"jump": true, "kid": "Nils"}}    – hoppa
+  // {"cmd": {"release": "Nils"}}              – barnet får göra som det vill igen
+  var DOABLE = SOLO.concat(DUO, ['sleep', 'mustache', 'pedalcar', 'farmtoys', 'slime', 'dressup', 'disco']);
+
+  // Avbryt allt barnet håller på med.
+  function reset(f) {
+    release(f);
+    f.by = null;
+    f.ev = null;
+    f.inWater = false; f.bag = null; f.sockT = 0; f.vehicle = null; f.leader = null;
+    f.z = 0; f.vz = 0;
+    setAct(f, 'walk');
+  }
+
+  function command(c) {
+    if (!c || typeof c !== 'object') return;
+    var f = c.kid != null ? byName(String(c.kid)) : null, i, g;
+    if (c.event && EV[c.event]) {
+      if (event && !event.ending) endEvent(event);
+      event = null;
+      for (i = 0; i < count; i++) reset(figs[i]);
+      startEvent(String(c.event));
+      eventCool = rand(30, 50);
+    }
+    if (c.do && DOABLE.indexOf(c.do) >= 0) {
+      if (!f) f = figs[(Math.random() * count) | 0];
+      if (!f) return;
+      reset(f);
+      var others = figs.slice(0, count).filter(function (o) { return o !== f; });
+      if (DUO.indexOf(c.do) >= 0 && !others.some(free) && others.length) reset(nearest(f, others));
+      if (c.do === 'mustache' && others.length) {
+        g = nearest(f, others);
+        reset(g);
+        setAct(g, 'sleep');
+        g.t = 1.5;
+      }
+      prank(f, c.do);
+    }
+    if (c.steer && f) {
+      if (f.a !== 'steer') {
+        if (f.a === 'pedalcar') { f.ev = null; release(f); } else reset(f);
+        var car = f.vehicle;
+        setAct(f, 'steer');
+        f.vehicle = car;
+      }
+      f.cx = clamp(+c.steer[0] || 0, -1, 1);
+      f.cy = clamp(+c.steer[1] || 0, -1, 1);
+      f.ctrlT = 0;
+    }
+    if (c.jump && f) {
+      if (f.z <= 0) hop(f, 0.7);
+      if (f.a === 'steer') f.ctrlT = 0;
+    }
+    if (c.release != null) {
+      g = byName(String(c.release));
+      if (g && g.a === 'steer') { g.vehicle = null; setAct(g, 'walk'); }
+    }
+  }
+
+  ACT.steer = {
+    dur: 1e9,
+    start: function (f) { f.cx = f.cy = 0; f.ctrlT = 0; f.moving = false; },
+    update: function (f, dt) {
+      f.ctrlT += dt;
+      if (f.ctrlT > 10) { f.vehicle = null; return setAct(f, 'walk'); }
+      var x = f.cx, y = f.cy, m = Math.sqrt(x * x + y * y);
+      f.moving = m > 0.15;
+      if (!f.moving) return;
+      var v = WALK * baseL * (f.vehicle ? 1.6 : 1.5) * Math.min(1, m), ox = f.x, oy = f.y;
+      f.x = clamp(f.x + x / m * v * dt, xMin, xMax);
+      f.y = clamp(f.y + y / m * v * dt * 0.7, yTop, yBot);
+      if (Math.abs(x) > 0.1) f.face = x > 0 ? 1 : -1;
+      var d = Math.sqrt((f.x - ox) * (f.x - ox) + (f.y - oy) * (f.y - oy));
+      f.phase = (f.phase + d / (f.L * 0.9)) % 1;
+      f.wheel += d / (0.13 * f.L);
+      if (!f.vehicle) checkPeel(f);
+    },
+    pose: function (f, p) {
+      if (f.vehicle === 'tractor') return ACT.pedalcar.pose(f, p);
+      if (f.moving) walkPose(p, f.phase, 1.2); else idlePose(f, p);
+    }
+  };
+
+  // En liten pil ovanför den som styrs.
+  function drawSteerMark(ctx, f) {
+    var x = f.hx, y = f.hy - f.hr * 1.6 - Math.abs(Math.sin(clock * 4)) * f.L * 0.03, s = f.L * 0.05;
+    ctx.fillStyle = '#ffd43b';
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = Math.max(1, f.L * 0.008);
+    ctx.beginPath();
+    ctx.moveTo(x - s, y - s);
+    ctx.lineTo(x + s, y - s);
+    ctx.lineTo(x, y + s * 0.6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
   }
 
   // ---------------------------------------------------------------- motor
@@ -4262,6 +4366,7 @@
     scatter: scatter,
     update: update,
     draw: draw,
-    release: function () { figs = []; count = 0; parts = []; pops = []; props = []; event = null; }
+    release: function () { figs = []; count = 0; parts = []; pops = []; props = []; event = null; },
+    command: command
   });
 })();
