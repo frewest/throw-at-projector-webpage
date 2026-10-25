@@ -4,7 +4,7 @@ Cast-receivern för [throw-at-projector](https://github.com/frewest/throw-at-pro
 levande, realtidsgenererade figurer på vit bakgrund, ritade med HTML5 canvas.
 Lägen: **Myror**, **Stitch** (Stitch, Angel, Reuben, Lilo, Jumba och
 Pleakley som springer omkring, hoppar och jagar varandra) och **Jordbruk**
-(traktorer med redskap och skördetröskor som kör i rader och lämnar spår).
+(traktorer med redskap och skördetröskor som kör omkring och lämnar spår).
 Sidan körs på Chromecasten som Custom Web Receiver och hostas med GitHub Pages.
 
 **Adress:** <https://frewest.github.io/throw-at-projector-webpage/>

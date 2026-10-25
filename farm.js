@@ -1,12 +1,11 @@
 /*
  * Läge "Jordbruk" – traktorer och andra jordbruksfordon kör över fältet.
  *
- * Fordonen ses uppifrån och kör i rader fram och tillbaka som vid riktigt
- * fältarbete: vid kanten vänder de (utanför bild) och kommer tillbaka i
- * raden bredvid, och efter några vändor kör de iväg och ett nytt fordon kommer.
- * Redskapen lämnar spår på ett eget spår-lager som bleknar bort efter en stund:
- * harvad jord,
- * plogfåror, sådda rader, stubb, klippt gräs, gödselkorn och rundbalar.
+ * Fordonen ses uppifrån och kör omkring på fältet i slumpvisa svängar. En
+ * stund håller de sig kvar på fältet, sedan kör de iväg och ett nytt fordon
+ * kommer in från en kant. Redskapen lämnar spår på ett eget spår-lager som
+ * bleknar bort efter en stund: harvad jord, plogfåror, sådda rader, stubb,
+ * klippt gräs, gödselkorn och rundbalar.
  *
  * Fordonen förrenderas en gång per storlek och färg och roteras vid ritning,
  * så varje fordon kostar ett drawImage-anrop.
@@ -27,7 +26,6 @@
   var OUTLINE = '#25272d';
   var OL = 0.012;              // konturbredd i traktorlängder
 
-  var DRIVE = 0, TURN = 1;
   var SMOKE = 0, GRAIN = 1, MIST = 2;
 
   // ---------------------------------------------------------------- värld
@@ -41,14 +39,12 @@
   var px = new Float32Array(MAX);
   var py = new Float32Array(MAX);
   var head = new Float32Array(MAX);    // aktuell riktning
-  var lane = new Float32Array(MAX);    // radens riktning (0, π/2, π, -π/2)
+  var curve = new Float32Array(MAX);   // aktuell krökning (1/px, + = höger)
+  var curveGoal = new Float32Array(MAX); // krökningen fordonet styr mot
+  var curveT = new Float32Array(MAX);  // tid till nästa rattutslag
+  var stay = new Float32Array(MAX);    // tid kvar innan fordonet får köra iväg
   var spd = new Float32Array(MAX);     // individuell fartfaktor
   var cur = new Float32Array(MAX);     // aktuell fart i px/s (accelererar)
-  var state = new Uint8Array(MAX);
-  var turnLeft = new Float32Array(MAX);
-  var turnDir = new Int8Array(MAX);
-  var sweep = new Int8Array(MAX);      // åt vilket håll raderna flyttas
-  var passes = new Int8Array(MAX);     // vändor kvar innan fordonet kör iväg
   var wait = new Float32Array(MAX);    // hur länge fordonet stått och väntat
   var patience = new Float32Array(MAX); // hur länge det väntar innan det kör (slump)
   var blocker = new Int8Array(MAX);    // fordonet som står i vägen, eller -1
@@ -376,7 +372,7 @@
     T0.frames = T0.frames || 1;
     T0.tracks = T0.tracks || TRACTOR_TRACKS;
     T0.exhaust = T0.exhaust || [0.12, -0.065];
-    // vändradie: så att nästa rad hamnar precis bredvid den förra
+    // minsta svängradie, i traktorlängder
     T0.radius = Math.max(0.6, T0.trail ? T0.trail.w / 2 : 0.6);
   }
 
@@ -438,34 +434,18 @@
     return 0;
   }
 
-  function horizontal(i) { return Math.abs(Math.cos(lane[i])) > 0.5; }
-
-  // Läge i sidled (vinkelrätt mot raden) och planens bredd i den riktningen.
-  function latOf(i) { return horizontal(i) ? py[i] : px[i]; }
-  function spanOf(i) { return horizontal(i) ? H : W; }
-
-  // Välj en rad där det inte redan kör någon.
-  function pickLat(i, span) {
-    var T = TYPES[type[i]];
-    var m = Math.min(span / 2, (T.half + 0.1) * L);
-    var best = rand(m, span - m), bestD = -1;
-    for (var k = 0; k < 8; k++) {
-      var c = rand(m, span - m), d = Infinity;
-      for (var j = 0; j < count; j++) {
-        if (j === i || horizontal(j) !== horizontal(i)) continue;
-        d = Math.min(d, Math.abs(latOf(j) - c));
-      }
-      if (d > bestD) { bestD = d; best = c; }
-    }
-    return best;
+  function wrapAngle(a) {
+    if (a > Math.PI) a -= TWO_PI; else if (a < -Math.PI) a += TWO_PI;
+    return a;
   }
 
   function initVehicle(i) {
     type[i] = pickType();
     pal[i] = (Math.random() * TYPES[type[i]].pals.length) | 0;
     spd[i] = rand(0.85, 1.15);
-    state[i] = DRIVE;
-    passes[i] = 1 + ((Math.random() * 4) | 0);
+    curve[i] = curveGoal[i] = 0;
+    curveT[i] = rand(1, 3);
+    stay[i] = rand(20, 60);
     wait[i] = 0;
     patience[i] = rand(1, 5);
     blocker[i] = -1;
@@ -475,26 +455,25 @@
     anim[i] = Math.random();
   }
 
-  function setLane(i, h, lat) {
-    lane[i] = head[i] = h;
-    var span = horizontal(i) ? H : W;
-    sweep[i] = lat < span / 2 ? 1 : -1;
-  }
-
-  // Nytt fordon kör in från en kant.
+  // Nytt fordon kör in från en kant, där det är som glesast.
   function spawnAtEdge(i) {
     initVehicle(i);
     var T = TYPES[type[i]];
     var out = (T.front + 0.05) * L;
-    var h = Math.random() < 0.7 ? (Math.random() < 0.5 ? 0 : Math.PI)
-      : (Math.random() < 0.5 ? Math.PI / 2 : -Math.PI / 2);
-    lane[i] = h;
-    var lat = pickLat(i, Math.abs(Math.cos(h)) > 0.5 ? H : W);
-    if (h === 0) { px[i] = -out; py[i] = lat; }
-    else if (h === Math.PI) { px[i] = W + out; py[i] = lat; }
-    else if (h > 0) { px[i] = lat; py[i] = -out; }
-    else { px[i] = lat; py[i] = H + out; }
-    setLane(i, h, lat);
+    var best = -1;
+    for (var k = 0; k < 8; k++) {
+      var p = Math.random() * 2 * (W + H), x, y, h;
+      if (p < W) { x = p; y = -out; h = Math.PI / 2; }
+      else if (p < W + H) { x = W + out; y = p - W; h = Math.PI; }
+      else if (p < 2 * W + H) { x = p - W - H; y = H + out; h = -Math.PI / 2; }
+      else { x = -out; y = p - 2 * W - H; h = 0; }
+      var d = Infinity;
+      for (var j = 0; j < count; j++) {
+        if (j !== i) d = Math.min(d, Math.abs(px[j] - x) + Math.abs(py[j] - y));
+      }
+      if (d > best) { best = d; px[i] = x; py[i] = y; head[i] = h; }
+    }
+    head[i] = wrapAngle(head[i] + rand(-0.6, 0.6));
     cur[i] = BASE_SPEED * scale * settings.speed * T.speed * spd[i];
   }
 
@@ -507,8 +486,9 @@
   function scatter() {
     for (var i = 0; i < count; i++) {
       spawnAtEdge(i);
-      if (horizontal(i)) px[i] = rand(0.1, 0.9) * W;
-      else py[i] = rand(0.1, 0.9) * H;
+      px[i] = rand(0.1, 0.9) * W;
+      py[i] = rand(0.1, 0.9) * H;
+      head[i] = rand(-Math.PI, Math.PI);
     }
   }
 
@@ -542,21 +522,6 @@
       if (along < (T.front + U.back + 0.25) * L && lat < (T.body + U.body) * L) return j;
     }
     return -1;
-  }
-
-  // Börja en vändning (180°) så att nästa rad hamnar bredvid. Går det inte
-  // inom planen kör fordonet i stället iväg.
-  function startTurn(i) {
-    var T = TYPES[type[i]];
-    var shift = 2 * T.radius * L;
-    var lat = latOf(i), span = spanOf(i), m = T.half * L * 0.5;
-    if (lat + sweep[i] * shift > span - m || lat + sweep[i] * shift < m) sweep[i] = -sweep[i];
-    if (lat + sweep[i] * shift > span - m || lat + sweep[i] * shift < m) { passes[i] = 0; return; }
-    // vänster/höger: sidledsförskjutningen blir turnDir * (-sin h, cos h)
-    var perp = horizontal(i) ? Math.cos(lane[i]) : -Math.sin(lane[i]);
-    turnDir[i] = sweep[i] * (perp >= 0 ? 1 : -1);
-    state[i] = TURN;
-    turnLeft[i] = Math.PI;
   }
 
   // ---------------------------------------------------------------- uppdatering
@@ -604,35 +569,39 @@
       }
       var step = cur[i] * dt;
 
-      if (state[i] === TURN) {
-        var dh = step / (T.radius * L);
-        head[i] += dh * turnDir[i];
-        turnLeft[i] -= dh;
-        if (turnLeft[i] <= 0) {
-          lane[i] += Math.PI;
-          if (lane[i] > Math.PI + 0.1) lane[i] -= TWO_PI;
-          head[i] = lane[i];
-          state[i] = DRIVE;
-          passes[i]--;
-        }
-      } else {
-        head[i] = lane[i];
-        var c0 = Math.cos(lane[i]), s0 = Math.sin(lane[i]);
-        var ahead = horizontal(i) ? (c0 > 0 ? W - px[i] : px[i]) : (s0 > 0 ? H - py[i] : py[i]);
-        if (passes[i] > 0 && ahead < T.front * L) startTurn(i);
-        // helt utanför: kört iväg, ett nytt fordon kommer
-        if (passes[i] <= 0 && ahead < -(T.front + T.back + T.radius) * L) {
+      // Slumpvisa rattutslag: ibland rakt fram, ibland en mjuk sväng.
+      var rmin = T.radius * L;
+      curveT[i] -= dt;
+      if (curveT[i] <= 0) {
+        curveGoal[i] = Math.random() < 0.5 ? 0
+          : (Math.random() < 0.5 ? -1 : 1) * rand(0.1, 0.6) / rmin;
+        curveT[i] = curveGoal[i] ? rand(1, 3) : rand(2, 6);
+      }
+      // Så länge fordonet ska stanna kvar styr det tillbaka in mot fältet
+      // när det närmar sig kanten; sedan får det köra iväg.
+      stay[i] -= dt;
+      var m = (T.front + 2 * T.radius) * L;
+      if (stay[i] > 0 && (px[i] < m || px[i] > W - m || py[i] < m || py[i] > H - m)) {
+        var d = wrapAngle(Math.atan2(H / 2 - py[i], W / 2 - px[i]) - head[i]);
+        if (Math.abs(d) > 0.5) curveGoal[i] = (d > 0 ? 1 : -1) / rmin;
+      } else if (stay[i] <= 0) {
+        // helt utanför bild: kört iväg, ett nytt fordon kommer in
+        var gone = (T.front + T.back + 0.2) * L;
+        if (px[i] < -gone || px[i] > W + gone || py[i] < -gone || py[i] > H + gone) {
           spawnAtEdge(i);
           continue;
         }
       }
+      curve[i] += (curveGoal[i] - curve[i]) * Math.min(1, 2 * dt);
+      head[i] = wrapAngle(head[i] + curve[i] * step);
 
       var c = Math.cos(head[i]), s = Math.sin(head[i]);
       px[i] += c * step;
       py[i] += s * step;
 
       // spår: hjulspår först, redskapet ovanpå
-      var len = step / L * (state[i] === TURN ? 2.2 : 1) + 0.002;
+      // ytterkanten i en sväng rör sig längre än mitten
+      var len = step / L * (1 + Math.abs(curve[i]) * T.half * L) + 0.002;
       if (step > 0) {
         for (var k = 0; k < T.tracks.length; k++) {
           var tr = T.tracks[k];
