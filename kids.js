@@ -16,12 +16,19 @@
  * (den som kliver på det halkar).
  * Bus på en kompis: smyga fram och säga BU, kittla, vattenpistol,
  * bockhopp, pruttkudde och rita mustasch eller glasögon på den som sover.
+ * Dessutom: prutta (de andra håller för näsan), nysa, plastspindel,
+ * vattenballong och kull.
+ * Gemensamt ibland: alla äter glass på en bänk (någon tappar glassen),
+ * badar i en pool, äter hamburgare på en filt (ketchup och en rap), springer
+ * ute i bara strumporna, och Ida och Vienna sover över (kuddkrig först).
  *
  * Vinklar: 0 = rakt ner, positivt = framåt (åt det håll figuren tittar),
  * PI = rakt upp. Allt i figurhöjder med höften i origo.
  * ?bus=namn gör att just det buset väljs om och om igen, för test. Namn:
  * tittut, tongue, balloon, bubbles, cartwheel, spin, knock, dance, confetti,
- * wave, banana, boo, tickle, squirt, leapfrog, cushion, mustache, sleep.
+ * wave, banana, boo, tickle, squirt, leapfrog, cushion, mustache, sleep,
+ * fart, sneeze, spider, waterballoon, tag – eller en gemensam stund:
+ * icecream, pool, burger, sleepover, socks.
  */
 (function () {
   'use strict';
@@ -72,8 +79,9 @@
   var LAUGHS = ['Hahaha!', 'Hihihi!', 'Lurad!', 'Haha, vad kul!'];
 
   var SOLO = ['tittut', 'tongue', 'balloon', 'bubbles', 'cartwheel', 'spin', 'knock',
-    'dance', 'confetti', 'wave', 'banana'];
-  var DUO = ['boo', 'tickle', 'squirt', 'leapfrog', 'cushion'];
+    'dance', 'confetti', 'wave', 'banana', 'fart', 'fart', 'sneeze'];
+  var DUO = ['boo', 'tickle', 'squirt', 'leapfrog', 'cushion', 'spider', 'waterballoon', 'tag'];
+  var FLAVORS = ['#f7a1c4', '#fff4d6', '#8b5a3c', '#b8f0d0'];
 
   // ---------------------------------------------------------------- värld
   var W = 1920, H = 1080, scale = 1;
@@ -115,6 +123,8 @@
       x: 0, y: 0, z: 0, vz: 0, face: 1, L: baseL, spd: rand(0.85, 1.15), phase: 0,
       gx: 0, gy: 0, a: 'walk', t: 0, dur: 0, k1: 0, k2: 0, k3: 0, emit: 0, ang: 0,
       target: null, by: null, next: null, last: null, prop: null, cool: rand(1, 4),
+      ev: null, other: null, inWater: false, bag: null, sockT: 0, dirt: 0, ketchup: 0, scoop: 1,
+      bites: 0, flavor: FLAVORS[i % FLAVORS.length], vx: 0,
       text: '', textT: 0, starsT: 0, wetT: 0, beard: 0, beardKind: 0, col: '#fff',
       sx0: 0, ex: 0, p: {},
       j: { lf: [0, 0, 0, 0], lb: [0, 0, 0, 0], af: [0, 0, 0, 0], ab: [0, 0, 0, 0] },
@@ -127,8 +137,11 @@
   }
 
   function newGoal(f) {
-    f.gx = clamp(f.x + rand(-0.45, 0.45) * W, xMin, xMax);
-    f.gy = rand(yTop, yBot);
+    for (var n = 0; n < 6; n++) {
+      f.gx = clamp(f.x + rand(-0.45, 0.45) * W, xMin, xMax);
+      f.gy = rand(yTop, yBot);
+      if (!blocked(f.gx, f.gy)) break;
+    }
   }
 
   function place(f) {
@@ -291,7 +304,7 @@
     p.af1 = 0.18; p.af2 = 0.3; p.ab1 = -0.12; p.ab2 = 0.3;
     p.lf1 = 0.06; p.lf2 = -0.04; p.lb1 = -0.06; p.lb2 = -0.04;
     p.hf = null; p.hb = null; p.front = false; p.fingers = false;
-    p.expr = 'grin'; p.item = null; p.ir = 0;
+    p.expr = 'grin'; p.item = null; p.ir = 0; p.free = 0;
   }
 
   function walkPose(p, ph, amp) {
@@ -348,7 +361,7 @@
     update: function (f) {
       var a = f.by;
       if (!a || !a.alive || a.target !== f) { f.by = null; return setAct(f, 'walk'); }
-      var away = a.next === 'boo' || a.next === 'squirt';
+      var away = a.next === 'boo' || a.next === 'squirt' || a.next === 'waterballoon';
       if (Math.abs(a.x - f.x) > 4) f.face = (a.x > f.x) !== away ? 1 : -1;
     },
     end: function (f) { f.by = null; setAct(f, 'walk'); },
@@ -370,6 +383,9 @@
           case 'squirt': gx = g.x + side * 2.0 * g.L; break;
           case 'leapfrog': gx = g.x + side * 1.4 * g.L; break;
           case 'cushion': gx = g.x + side * 0.6 * g.L; break;
+          case 'spider': gx = g.x + side * 0.6 * g.L; break;
+          case 'waterballoon': gx = g.x + side * 2.2 * g.L; break;
+          case 'tag': gx = g.x + side * 0.3 * g.L; break;
           default: side = f.x < g.hx ? -1 : 1; gx = g.hx + side * 0.3 * g.L;
         }
         if (gx < xMin || gx > xMax) gx = 2 * g.x - gx;
@@ -1004,6 +1020,936 @@
     }
   };
 
+  // ---- mer bus
+
+  ACT.fart = {
+    dur: 3,
+    update: function (f) {
+      if (f.t > 0.5 && !f.k1) {
+        f.k1 = 1;
+        pop(pick(['PRUTT!', 'PRRRT!', 'PUFF!']), f.x - f.face * f.L * 0.25, f.y - f.L * 0.45, f.L * 0.22, '#a9e34b');
+        for (var i = 0; i < 6; i++) {
+          emit('cloud', f.x - f.face * f.L * rand(0.1, 0.35), f.y - f.L * rand(0.3, 0.5),
+            -f.face * rand(10, 50) * scale, -rand(10, 30) * scale, rand(1.2, 1.8), f.L * rand(0.05, 0.09), '');
+        }
+        for (i = 0; i < count; i++) {
+          var g = figs[i];
+          if (g !== f && free(g) && Math.abs(g.x - f.x) < 3 * f.L && Math.abs(g.y - f.y) < 1.5 * f.L) {
+            g.face = f.x > g.x ? 1 : -1;
+            setAct(g, 'stink');
+          }
+        }
+      }
+      if (f.t > 1.1 && !f.k2) { f.k2 = 1; say(f, pick(['Hoppsan!', 'Det var inte jag!', 'Ursäkta!', 'Oj, en prutt!'])); }
+    },
+    pose: function (f, p) {
+      if (f.t < 0.5) {
+        p.lean = 0.3 * f.t / 0.5;
+        p.lb1 = -0.35;
+        p.expr = 'sneaky';
+      } else {
+        p.expr = f.t < 1.1 ? 'o' : 'laugh';
+        if (f.t > 1.1) laughPose(f, p);
+      }
+    }
+  };
+
+  // Håller för näsan och viftar bort lukten.
+  ACT.stink = {
+    dur: 2.4,
+    start: function (f) {
+      say(f, pick(['Iiih, vem var det?', 'Fy, vad det luktar!', 'Bläää!', 'Hahaha!', 'Det luktar prutt!']));
+    },
+    pose: function (f, p) {
+      p.hf = ['h', 0.25, 0.2];
+      p.front = true;
+      p.ab1 = -2.2 + 0.5 * Math.sin(f.t * 14); p.ab2 = -0.4;
+      p.lean = -0.12;
+      p.expr = 'wet';
+    }
+  };
+
+  ACT.sneeze = {
+    dur: 2.8,
+    start: function (f) { say(f, 'Aaa... aaa...', 1.3); },
+    update: function (f) {
+      if (f.t > 1.3 && !f.k1) {
+        f.k1 = 1;
+        pop('ATJOO!', f.hx + f.face * f.L * 0.35, f.hy, f.L * 0.22, '#74c0fc');
+        for (var i = 0; i < 8; i++) {
+          emit('drop', f.hx + f.face * f.hr, f.hy + f.hr * 0.4, f.face * rand(150, 320) * scale,
+            rand(-120, 20) * scale, rand(0.25, 0.45), f.L * 0.008, '#a5d8ff');
+        }
+        hop(f, 0.25);
+        var list = [];
+        for (i = 0; i < count; i++) if (figs[i] !== f && free(figs[i])) list.push(figs[i]);
+        var g = nearest(f, list);
+        if (g) say(g, 'Prosit!', 1.6);
+      }
+      if (f.t > 2.0 && !f.k2) { f.k2 = 1; say(f, pick(['Tack!', 'Hihi, förlåt!'])); }
+    },
+    pose: function (f, p) {
+      if (f.t < 1.3) {
+        var u = f.t / 1.3;
+        p.lean = -0.25 * u;
+        p.tilt = -0.3 * u;
+        p.expr = 'o';
+      } else if (f.t < 1.7) {
+        p.lean = 0.45;
+        p.tilt = 0.3;
+        p.expr = 'sleep';
+      }
+    }
+  };
+
+  ACT.spider = {
+    dur: 3,
+    update: function (f) {
+      var g = f.target;
+      if (f.t > 0.6 && !f.k1) {
+        f.k1 = 1;
+        if (!ok(g, f)) return finish(f);
+        props.push({ type: 'spider', x: lerp(f.x, g.x, 0.55), y: g.y + 1, t: 0, life: 4, L: g.L });
+      }
+      if (f.t > 1.0 && !f.k2) {
+        f.k2 = 1;
+        if (ok(g, f)) { setAct(g, 'scared'); say(g, pick(['En spindel!', 'Iiih, en spindel!', 'Aaah!'])); }
+      }
+      if (f.t > 1.8 && !f.k3) { f.k3 = 1; say(f, pick(['Det är bara en plastspindel!', 'Hihi, den är inte på riktigt!'])); }
+    },
+    pose: function (f, p) {
+      if (f.t < 0.8) {
+        var u = Math.sin(Math.min(1, f.t / 0.8) * Math.PI);
+        p.lean = 0.8 * u;
+        p.lf1 = 0.4 * u; p.lf2 = -0.7 * u - 0.04;
+        p.af1 = lerp(0.3, 1.0, u); p.af2 = 0.1;
+        p.expr = 'sneaky';
+      } else {
+        laughPose(f, p);
+      }
+    }
+  };
+
+  ACT.waterballoon = {
+    dur: 2.6,
+    start: function (f) { f.col = pick(['#4dabf7', '#74c0fc', '#69db7c']); say(f, pick(['Vattenballong!', 'Fånga!']), 1.2); },
+    update: function (f) {
+      var g = f.target;
+      if (f.t > 0.55 && !f.k1) {
+        f.k1 = 1;
+        if (!ok(g, f)) return finish(f);
+        var x0 = f.wh[0], y0 = f.wh[1], T = 0.6, tx = g.hx, ty = g.hy;
+        parts.push({ type: 'wb', x: x0, y: y0, vx: (tx - x0) / T, vy: (ty - y0) / T - 0.5 * DROP_G * scale * 0.6 * T,
+          t: 0, life: T, s: f.L * 0.05, col: f.col, r: 0, w: 0 });
+      }
+      if (f.t > 1.15 && !f.k2) {
+        f.k2 = 1;
+        if (ok(g, f) && g.a === 'wait') { pop('SPLASH!', g.hx, g.hy - g.L * 0.2, g.L * 0.2, '#74c0fc'); setAct(g, 'wet'); }
+      }
+      if (f.t > 1.4 && !f.k3) { f.k3 = 1; say(f, pick(LAUGHS)); }
+    },
+    pose: function (f, p) {
+      if (f.t < 0.55) {
+        p.af1 = lerp(0.2, -2.4, f.t / 0.55); p.af2 = -0.3;
+        p.lean = -0.15;
+        p.item = 'wb';
+        p.expr = 'sneaky';
+      } else if (f.t < 0.9) {
+        p.af1 = 1.6; p.af2 = 0; p.lean = 0.2;
+      } else {
+        laughPose(f, p);
+      }
+    }
+  };
+
+  // Kull: den som blir kullad jagar tillbaka.
+  ACT.tag = {
+    dur: 0.5,
+    start: function (f) {
+      var g = f.target;
+      if (!ok(g, f)) return finish(f);
+      say(f, pick(['Kull! Du är den!', 'Kull!', 'Ta mig om du kan!']), 1.6);
+      g.other = f;
+      setAct(g, 'chase');
+    },
+    end: function (f) { setAct(f, 'flee'); },
+    pose: function (f, p) { p.af1 = 1.5; p.af2 = 0; p.expr = 'laugh'; }
+  };
+
+  ACT.flee = {
+    dur: 4,
+    update: function (f, dt) {
+      var g = f.target;
+      if (!g || !g.alive || g.a !== 'chase') return finish(f);
+      var dx = f.x - g.x, dy = f.y - g.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
+      var gx = clamp(f.x + dx / d * f.L, xMin, xMax), gy = clamp(f.y + dy / d * f.L, yTop, yBot);
+      if (gx === xMin || gx === xMax) gy = clamp(f.y + (dy >= 0 ? 1 : -1) * f.L, yTop, yBot);
+      moveTo(f, gx, gy, WALK * baseL * 1.7 * f.look.h, dt);
+    },
+    end: finish,
+    pose: function (f, p) { walkPose(p, f.phase, 1.35); p.lean = 0.2; p.expr = 'laugh'; }
+  };
+
+  ACT.chase = {
+    dur: 4.5,
+    start: function (f) { say(f, 'Ett, två, tre...', 1.2); },
+    update: function (f, dt) {
+      var g = f.other;
+      if (!g || !g.alive) return finish(f);
+      if (f.t < 1.2) return;
+      if (!f.k1) { f.k1 = 1; say(f, pick(['Jag ska ta dig!', 'Nu kommer jag!']), 1.4); }
+      if (moveTo(f, g.x, g.y, WALK * baseL * 1.6 * f.look.h, dt) ||
+          Math.abs(g.x - f.x) < 0.3 * f.L && Math.abs(g.y - f.y) < 0.2 * f.L) {
+        if (g.a === 'flee') finish(g);
+        if (free(g)) setAct(g, 'laugh');
+        setAct(f, 'laugh');
+        say(f, 'Kull tillbaka!', 1.6);
+      }
+    },
+    end: function (f) { say(f, pick(['Puh, du är för snabb!', 'Jag orkar inte mer!'])); finish(f); },
+    pose: function (f, p) {
+      if (f.t < 1.2) { p.hf = ['h', 0.4, -0.05]; p.hb = ['h', -0.4, -0.05]; p.front = true; return; }
+      walkPose(p, f.phase, 1.35); p.lean = 0.25; p.af1 = 1.4; p.af2 = 0; p.expr = 'grin';
+    }
+  };
+
+  // ---------------------------------------------------------------- gemensamma stunder
+  // Ibland gör barnen något tillsammans: äter glass på en bänk, badar i en
+  // pool, äter hamburgare på en filt, springer ute i strumporna, eller så
+  // sover Ida och Vienna över. Barnen går först till sina platser (gather),
+  // sedan börjar själva stunden (main) och till sist bleknar sakerna bort.
+  var event = null;
+  var eventCool = rand(15, 25);
+  var EVENTS = ['icecream', 'pool', 'burger', 'sleepover', 'socks'];
+
+  function byName(n) {
+    for (var i = 0; i < count; i++) if (figs[i].look.name === n) return figs[i];
+    return null;
+  }
+
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = (Math.random() * (i + 1)) | 0, t = a[i];
+      a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  // Ligger punkten i poolen?
+  function blocked(x, y) {
+    var e = event;
+    return e && e.type === 'pool' && x > e.x0 - baseL * 0.3 && x < e.x1 + baseL * 0.3 &&
+      y > e.y0 - baseL * 0.1 && y < e.y1 + baseL * 0.15;
+  }
+
+  function startEvent(type) {
+    var m = [], i;
+    if (type === 'sleepover') {
+      var a = byName('Ida'), b = byName('Vienna');
+      if (!a || !b || !free(a) || !free(b)) return false;
+      m = [a, b];
+    } else {
+      for (i = 0; i < count; i++) if (free(figs[i])) m.push(figs[i]);
+      if (m.length < 2) return false;
+      shuffle(m);
+      if (type === 'socks') m.length = 2 + ((Math.random() * (m.length - 1)) | 0);
+    }
+    var e = { type: type, t: 0, t0: 0, main: false, ending: false, fade: 1, members: m, spots: [], k: 0 };
+    EV[type].setup(e);
+    event = e;
+    for (i = 0; i < m.length; i++) {
+      m[i].ev = e;
+      m[i].spot = i;
+      if (e.spots.length) setAct(m[i], 'gather');
+    }
+    if (!e.spots.length) beginMain(e);
+    return true;
+  }
+
+  function beginMain(e) {
+    var D = EV[e.type];
+    e.main = true;
+    e.t0 = e.t;
+    for (var i = 0; i < e.members.length; i++) {
+      var f = e.members[i];
+      if (f.a === 'evwait' || !e.spots.length) setAct(f, D.act);
+    }
+    if (D.start) D.start(e);
+  }
+
+  function endEvent(e) {
+    e.ending = true;
+    e.fade = 1;
+    var D = EV[e.type];
+    for (var i = 0; i < e.members.length; i++) {
+      var f = e.members[i];
+      if (!f.alive || f.ev !== e) continue;
+      f.ev = null;
+      if (D.leave) D.leave(f, e); else setAct(f, 'walk');
+    }
+    eventCool = forced && EV[forced] ? 2 : rand(30, 50);
+  }
+
+  function updateEvent(dt) {
+    var e = event, i;
+    if (!e) {
+      eventCool -= dt;
+      if (eventCool <= 0) {
+        eventCool = rand(8, 15);
+        if (forced && EV[forced]) startEvent(forced);
+        else if (!forced) startEvent(pick(EVENTS));
+      }
+      return;
+    }
+    e.t += dt;
+    if (e.ending) {
+      e.fade -= dt * 1.5;
+      if (e.fade <= 0) event = null;
+      return;
+    }
+    var alive = 0, arrived = true;
+    for (i = 0; i < e.members.length; i++) {
+      var f = e.members[i];
+      if (!f.alive || f.ev !== e) continue;
+      alive++;
+      if (f.a === 'gather') arrived = false;
+    }
+    if (alive < (e.type === 'sleepover' ? 2 : 1)) return endEvent(e);
+    if (!e.main) {
+      if (arrived || e.t > 9) beginMain(e);
+      return;
+    }
+    var D = EV[e.type];
+    if (D.update) D.update(e, dt, e.t - e.t0);
+    if (event === e && !e.ending && e.t - e.t0 > e.dur) endEvent(e);
+  }
+
+  // Medlemmar som fortfarande är med i stunden.
+  function members(e) {
+    var out = [];
+    for (var i = 0; i < e.members.length; i++) {
+      var f = e.members[i];
+      if (f.alive && f.ev === e) out.push(f);
+    }
+    return out;
+  }
+
+  function sayOne(e, lines, d) {
+    var m = members(e);
+    if (m.length) say(pick(m), pick(lines), d);
+  }
+
+  ACT.gather = {
+    dur: 9,
+    update: function (f, dt) {
+      var e = f.ev;
+      if (!e || e !== event || e.ending) return setAct(f, 'walk');
+      var s = e.spots[f.spot];
+      if (moveTo(f, s[0], s[1], WALK * baseL * f.spd * 1.2, dt)) ACT.gather.end(f);
+    },
+    end: function (f) {
+      var e = f.ev;
+      if (!e || e !== event || e.ending) return setAct(f, 'walk');
+      var s = e.spots[f.spot];
+      f.x = s[0]; f.y = s[1]; f.face = s[2];
+      setAct(f, e.main ? EV[e.type].act : 'evwait');
+    },
+    pose: function (f, p) { walkPose(p, f.phase, 1.1); }
+  };
+
+  ACT.evwait = {
+    dur: 1e9,
+    update: function (f) { if (!f.ev || f.ev !== event || event.ending) setAct(f, 'walk'); },
+    pose: idlePose
+  };
+
+  // Sitter på en bänk med benen dinglande (de minsta når inte ner).
+  function benchPose(f, p, e) {
+    p.free = e.benchH / f.L;
+    p.lf1 = 1.45; p.lf2 = -1.35 + 0.25 * Math.sin(clock * 3 + f.i);
+    p.lb1 = 1.35; p.lb2 = -1.3 + 0.25 * Math.sin(clock * 3 + f.i + 2);
+    p.hb = ['b', 0.02, 0.02];
+  }
+
+  // Sitter på marken med benen framåt.
+  function sitPose(p) {
+    p.lf1 = 1.5; p.lf2 = -0.15; p.lb1 = 1.4; p.lb2 = -0.25;
+  }
+
+  ACT.icecream = {
+    dur: 1e9,
+    start: function (f) { f.scoop = 1; f.dropped = 0; },
+    update: function (f, dt) {
+      if (!f.ev || f.ev !== event || event.ending) return setAct(f, 'walk');
+      if (!f.dropped) f.scoop = Math.max(0.35, f.scoop - dt * 0.05);
+    },
+    pose: function (f, p) {
+      benchPose(f, p, f.ev || { benchH: 0.22 * f.L });
+      var c = (clock * 0.45 + f.i * 0.3) % 1;
+      if (!f.dropped && c < 0.35) {
+        p.hf = ['h', 0.25, 1.3];
+        p.expr = 'tongue';
+      } else {
+        p.hf = ['b', 0.14, -0.14];
+        p.expr = f.dropped === 1 ? 'scared' : 'grin';
+      }
+      p.item = f.dropped ? null : 'cone';
+    }
+  };
+
+  ACT.burger = {
+    dur: 1e9,
+    start: function (f) { f.bites = 0; },
+    update: function (f, dt) {
+      if (!f.ev || f.ev !== event || event.ending) return setAct(f, 'walk');
+      var c = (clock * 0.6 + f.i * 0.37) % 1;
+      if (c < f.k1) f.bites = Math.min(5, f.bites + 1);
+      f.k1 = c;
+    },
+    pose: function (f, p) {
+      sitPose(p);
+      p.lean = 0.1;
+      var c = (clock * 0.6 + f.i * 0.37) % 1;
+      if (c < 0.3) {
+        p.hf = ['h', 0.7, 0.8]; p.hb = ['h', 0.5, 0.95];
+        p.expr = 'blow';
+      } else {
+        p.hf = ['b', 0.2, -0.12]; p.hb = ['b', 0.17, -0.1];
+        p.expr = 'grin';
+      }
+      p.item = 'burger';
+    }
+  };
+
+  ACT.dive = {
+    dur: 1.0,
+    ownZ: true,
+    start: function (f) {
+      var e = f.ev;
+      f.sx0 = f.x; f.sy0 = f.y;
+      f.ex = rand(e.x0 + baseL * 0.5, e.x1 - baseL * 0.5);
+      f.ey = rand(e.y0 + baseL * 0.75, e.y1 - baseL * 0.08);
+      f.face = f.ex > f.x ? 1 : -1;
+      if (Math.random() < 0.5) say(f, pick(['Plask!', 'Jag hoppar!', 'Kanonkula!']), 1.2);
+    },
+    update: function (f) {
+      var u = Math.min(1, f.t / 0.8);
+      f.x = lerp(f.sx0, f.ex, u);
+      f.y = lerp(f.sy0, f.ey, u);
+      f.z = Math.sin(u * Math.PI) * 0.45 * f.L;
+      if (u >= 1 && !f.k1) {
+        f.k1 = 1;
+        f.z = 0;
+        f.inWater = true;
+        splash(f.x, f.y - f.L * 0.36, f.L * 0.12, 18);
+        emit('ripple', f.x, f.y - f.L * 0.36, 0, 0, 0.7, f.L * 0.08, 'rgba(255, 255, 255,');
+        setAct(f, 'swim');
+      }
+    },
+    pose: function (f, p) {
+      armsUp(p);
+      p.af1 = 2.9; p.ab1 = -2.9;
+      p.lf1 = 0.9; p.lf2 = -1.6; p.lb1 = 0.8; p.lb2 = -1.5;
+      p.expr = 'laugh';
+    }
+  };
+
+  ACT.swim = {
+    dur: 1e9,
+    ownZ: true,
+    start: function (f) { f.gx = f.x; f.gy = f.y; },
+    update: function (f, dt) {
+      var e = f.ev;
+      if (!e || e !== event || e.ending) { f.inWater = false; return setAct(f, 'walk'); }
+      f.z = (Math.sin(clock * 2.5 + f.i) * 0.02 - 0.02) * f.L;
+      if (moveTo(f, f.gx, f.gy, WALK * baseL * 0.35, dt)) {
+        f.gx = rand(e.x0 + baseL * 0.4, e.x1 - baseL * 0.4);
+        f.gy = rand(e.y0 + baseL * 0.75, e.y1 - baseL * 0.08);
+      }
+      if (Math.random() < 0.6 * dt) splash(f.x + f.face * f.L * 0.2, f.y - f.L * 0.36, f.L * 0.06, 5);
+    },
+    pose: function (f, p) {
+      var a = clock * 3.5 + f.i;
+      p.af1 = 1.6 + Math.sin(a) * 1.1; p.af2 = 0.3;
+      p.ab1 = 1.6 + Math.sin(a + Math.PI) * 1.1; p.ab2 = 0.3;
+      p.lf1 = 0.5; p.lb1 = -0.5;
+      p.free = 0.43;
+      p.expr = (a % 4) < 2 ? 'laugh' : 'grin';
+    }
+  };
+
+  // Klättrar upp ur poolen, blöt.
+  ACT.climbout = {
+    dur: 5,
+    start: function (f) {
+      var e = event;
+      f.inWater = false;
+      f.wetT = 6;
+      hop(f, 0.5);
+      if (e) {
+        f.gx = f.x - e.x0 < e.x1 - f.x ? e.x0 - baseL * 0.5 : e.x1 + baseL * 0.5;
+        f.gy = f.y;
+      } else {
+        f.gx = f.x; f.gy = f.y;
+      }
+      f.gx = clamp(f.gx, xMin, xMax);
+    },
+    update: function (f, dt) { if (moveTo(f, f.gx, f.gy, WALK * baseL * 1.1, dt)) finish(f); },
+    pose: function (f, p) { walkPose(p, f.phase, 1); }
+  };
+
+  ACT.pillowfight = {
+    dur: 1e9,
+    update: function (f) {
+      if (!f.ev || f.ev !== event || event.ending) return setAct(f, 'walk');
+      var s = Math.sin(clock * 6 + f.i * 1.7);
+      if (s < -0.95 && f.k1 > -0.95) {
+        for (var i = 0; i < 3; i++) {
+          emit('feather', f.wh[0] + f.face * f.L * 0.1, f.wh[1], rand(-60, 60) * scale, -rand(20, 90) * scale,
+            rand(1.5, 2.5), f.L * 0.02, '#fff');
+        }
+      }
+      f.k1 = s;
+    },
+    pose: function (f, p) {
+      var s = Math.sin(clock * 6 + f.i * 1.7);
+      p.af1 = 1.5 + 1.2 * s; p.af2 = 0.4;
+      p.lean = -0.1 * s;
+      p.item = 'pillow';
+      p.expr = 'laugh';
+    }
+  };
+
+  ACT.tobed = {
+    dur: 4,
+    update: function (f, dt) {
+      if (!f.ev || f.ev !== event || event.ending) return setAct(f, 'walk');
+      var s = f.ev.beds[f.spot];
+      if (moveTo(f, s[0], s[1], WALK * baseL, dt)) ACT.tobed.end(f);
+    },
+    end: function (f) {
+      if (!f.ev || f.ev !== event || event.ending) return setAct(f, 'walk');
+      var s = f.ev.beds[f.spot];
+      f.x = s[0]; f.y = s[1]; f.face = 1;
+      f.bag = f.look.name === 'Ida' ? '#f28cb1' : '#b197fc';
+      setAct(f, 'inbag');
+    },
+    pose: function (f, p) { walkPose(p, f.phase, 1); }
+  };
+
+  ACT.inbag = {
+    dur: 1e9,
+    update: function (f, dt) {
+      var e = f.ev;
+      if (!e || e !== event || e.ending) { f.bag = null; return setAct(f, 'walk'); }
+      f.emit -= dt;
+      if (e.asleep && f.emit <= 0) {
+        f.emit = 1.3;
+        emit('z', f.hx, f.hy - f.hr * 1.2, 18 * scale, -30 * scale, 2.2, f.L * 0.09, INK);
+      }
+    },
+    pose: function (f, p) {
+      var u = ease(f.t / 0.8);
+      p.rot = -Math.PI / 2 * u;
+      p.lf1 = 0.03; p.lf2 = 0; p.lb1 = -0.02; p.lb2 = 0;
+      p.af1 = 0.08; p.ab1 = -0.05; p.af2 = p.ab2 = 0.1;
+      p.expr = f.ev && f.ev.asleep ? 'sleep' : 'laugh';
+    }
+  };
+
+  ACT.sockrun = {
+    dur: 1e9,
+    start: newGoal,
+    update: function (f, dt) {
+      if (!f.ev || f.ev !== event || event.ending) return setAct(f, 'walk');
+      var ph = f.phase;
+      if (moveTo(f, f.gx, f.gy, WALK * baseL * 2.0 * f.look.h, dt)) newGoal(f);
+      f.dirt = Math.min(1, f.dirt + dt / 14);
+      if (f.dirt > 0.35 && (ph < 0.5) !== (f.phase < 0.5)) {
+        props.push({ type: 'print', x: f.x, y: f.y + 1, t: 0, life: 2.5, L: f.L, a: f.dirt });
+      }
+      if (Math.random() < 0.18 * dt) setAct(f, 'skid');
+    },
+    pose: function (f, p) { walkPose(p, f.phase, 1.35); p.lean = 0.18; p.expr = 'laugh'; }
+  };
+
+  // Glider på strumporna.
+  ACT.skid = {
+    dur: 1.1,
+    start: function (f) { f.vx = f.face * WALK * baseL * 2.2; say(f, pick(['Wiii!', 'Jag glider!', 'Halt!']), 1.2); },
+    update: function (f, dt) {
+      f.x = clamp(f.x + f.vx * dt, xMin, xMax);
+      f.vx *= 1 - 2.2 * dt;
+    },
+    end: function (f) { setAct(f, f.ev && f.ev === event && !event.ending ? 'sockrun' : 'walk'); },
+    pose: function (f, p) {
+      p.lf1 = 0.6; p.lf2 = 0; p.lb1 = -0.5; p.lb2 = 0;
+      p.af1 = 1.6; p.af2 = 0; p.ab1 = -1.6; p.ab2 = 0;
+      p.lean = -0.1;
+      p.expr = 'laugh';
+    }
+  };
+
+  var EV = {};
+
+  EV.icecream = {
+    act: 'icecream',
+    setup: function (e) {
+      var n = e.members.length, gap = baseL * 0.62, y = rand(lerp(yTop, yBot, 0.35), lerp(yTop, yBot, 0.85));
+      var x = clamp(rand(xMin, xMax), xMin + gap * n / 2 + baseL * 0.4, xMax - gap * n / 2 - baseL * 0.4);
+      e.dur = 13;
+      e.x0 = x - gap * n / 2 - baseL * 0.15;
+      e.x1 = x + gap * n / 2 + baseL * 0.15;
+      e.y = y;
+      e.benchH = depthL(y) * 1.05 * 0.235;
+      for (var i = 0; i < n; i++) {
+        var sx = x - gap * (n - 1) / 2 + gap * i;
+        e.spots.push([sx, y, sx < x ? 1 : -1]);
+      }
+    },
+    start: function (e) { sayOne(e, ['Glass!', 'Nu äter vi glass!', 'Jag vill ha jordgubbsglass!']); },
+    update: function (e, dt, t) {
+      var m = members(e);
+      if (Math.random() < 0.3 * dt) sayOne(e, ['Mmm!', 'Smaskens!', 'Glass är godast!', 'Mums!', 'Jag vill ha mer!']);
+      if (t > 5 && !e.k && m.length > 1) {
+        e.k = 1;
+        var f = byName('Nils');
+        if (!f || f.ev !== e || Math.random() < 0.4) f = pick(m);
+        f.dropped = 1;
+        emit('shred', f.wh[0], f.wh[1] - f.L * 0.05, 0, 0, 0.35, f.L * 0.03, f.flavor);
+        props.push({ type: 'splat', x: f.x + f.face * f.L * 0.15, y: e.y + 2, t: 0, life: 9, L: f.L, col: f.flavor });
+        say(f, pick(['Nej! Glassen!', 'Min glass ramlade!', 'Oj, glassen!']), 2);
+        e.drop = f;
+      }
+      if (e.k === 1 && t > 7) {
+        e.k = 2;
+        var others = m.filter(function (g) { return g !== e.drop; });
+        if (others.length) say(pick(others), 'Du kan få smaka på min, ' + e.drop.look.name + '!', 2.4);
+        e.drop.dropped = 2;
+      }
+      if (e.k === 2 && t > 9.5) { e.k = 3; say(e.drop, 'Tack!', 1.5); }
+    },
+    draw: function (ctx, e, a) {
+      // bänk
+      var L = depthL(e.y), top = e.y - e.benchH, th = L * 0.05;
+      ctx.globalAlpha = a;
+      ctx.lineWidth = Math.max(1, L * 0.012);
+      ctx.strokeStyle = INK;
+      ctx.fillStyle = '#c9a77a';
+      ctx.fillRect(e.x0, top, e.x1 - e.x0, e.y - L * 0.03 - top);
+      ctx.strokeRect(e.x0, top, e.x1 - e.x0, e.y - L * 0.03 - top);
+      ctx.fillStyle = '#ddc39c';
+      ctx.fillRect(e.x0 - L * 0.03, top - th, e.x1 - e.x0 + L * 0.06, th);
+      ctx.strokeRect(e.x0 - L * 0.03, top - th, e.x1 - e.x0 + L * 0.06, th);
+      ctx.beginPath();
+      for (var y = top + (e.y - top) / 3; y < e.y - L * 0.04; y += (e.y - top) / 3) {
+        ctx.moveTo(e.x0, y);
+        ctx.lineTo(e.x1, y);
+      }
+      ctx.strokeStyle = 'rgba(38, 35, 43, 0.35)';
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  };
+
+  EV.burger = {
+    act: 'burger',
+    setup: function (e) {
+      var n = e.members.length, y = rand(lerp(yTop, yBot, 0.3), lerp(yTop, yBot, 0.8));
+      var x = clamp(rand(xMin, xMax), xMin + baseL * 1.4, xMax - baseL * 1.4);
+      e.dur = 13;
+      e.x = x; e.y = y;
+      e.rx = baseL * (0.75 + 0.12 * n);
+      e.ry = baseL * 0.32;
+      for (var i = 0; i < n; i++) {
+        var side = i % 2 ? 1 : -1, row = (i / 2) | 0;
+        e.spots.push([x + side * baseL * (0.62 + 0.12 * row), y - baseL * 0.18 + row * baseL * 0.32, -side]);
+      }
+    },
+    start: function (e) { sayOne(e, ['Hamburgare!', 'Jag är så hungrig!', 'Nu blir det mat!']); },
+    update: function (e, dt, t) {
+      var m = members(e);
+      if (Math.random() < 0.3 * dt) sayOne(e, ['Mums!', 'Smaskigt!', 'Mer ketchup!', 'Hamburgare är bäst!', 'Mmm!']);
+      if (t > 4 && !e.k) {
+        e.k = 1;
+        var f = byName('Nils');
+        if (!f || f.ev !== e) f = pick(m);
+        f.ketchup = 25;
+        var others = m.filter(function (g) { return g !== f; });
+        if (others.length) say(pick(others), 'Du har ketchup på munnen, ' + f.look.name + '!', 2.4);
+      }
+      if (t > 10 && e.k === 1) {
+        e.k = 2;
+        var b = pick(m);
+        pop('BÖÖÖRP!', b.hx, b.hy - b.L * 0.25, b.L * 0.22, '#ffd43b');
+        e.burper = b;
+      }
+      if (t > 10.8 && e.k === 2) {
+        e.k = 3;
+        for (var i = 0; i < m.length; i++) say(m[i], m[i] === e.burper ? 'Förlåt!' : pick(['Hahaha!', 'Säg förlåt!', 'Hihi!']), 1.8);
+      }
+    },
+    draw: function (ctx, e, a) {
+      // rutig picknickfilt
+      var L = depthL(e.y);
+      ctx.globalAlpha = a;
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(e.x, e.y, e.rx, e.ry, 0, 0, TWO_PI);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+      ctx.clip();
+      ctx.fillStyle = 'rgba(230, 60, 60, 0.75)';
+      var c = L * 0.12;
+      for (var x = e.x - e.rx; x < e.x + e.rx; x += c * 2) ctx.fillRect(x, e.y - e.ry, c, e.ry * 2);
+      ctx.fillStyle = 'rgba(230, 60, 60, 0.45)';
+      for (var y = e.y - e.ry; y < e.y + e.ry; y += c * 1.2) ctx.fillRect(e.x - e.rx, y, e.rx * 2, c * 0.6);
+      ctx.restore();
+      ctx.lineWidth = Math.max(1, L * 0.012);
+      ctx.strokeStyle = INK;
+      ctx.beginPath();
+      ctx.ellipse(e.x, e.y, e.rx, e.ry, 0, 0, TWO_PI);
+      ctx.stroke();
+      // ketchupflaska
+      ctx.fillStyle = '#e03131';
+      roundRect(ctx, e.x - L * 0.03, e.y - L * 0.16, L * 0.06, L * 0.14, L * 0.02);
+      ctx.fill();
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  };
+
+  EV.pool = {
+    act: 'dive',
+    setup: function (e) {
+      var w = Math.min(W * 0.6, baseL * 5.5), h = Math.min((yBot - yTop) * 0.8, baseL * 2);
+      var cx = clamp(rand(xMin, xMax), xMin + w / 2 + baseL * 0.7, xMax - w / 2 - baseL * 0.7);
+      var cy = clamp(lerp(yTop, yBot, rand(0.4, 0.6)), yTop + h / 2 + baseL * 0.1, yBot - h / 2 - baseL * 0.15);
+      e.dur = 15;
+      e.x0 = cx - w / 2; e.x1 = cx + w / 2;
+      e.y0 = cy - h / 2; e.y1 = cy + h / 2;
+      // var och en går till den kortsida som är närmast
+      var nl = 0, nr = 0;
+      for (var i = 0; i < e.members.length; i++) {
+        var left = e.members[i].x < cx, n = left ? nl++ : nr++;
+        e.spots.push([left ? e.x0 - baseL * 0.35 : e.x1 + baseL * 0.35,
+          lerp(e.y0 + baseL * 0.8, e.y1, n * 0.45 + 0.1), left ? 1 : -1]);
+      }
+    },
+    start: function (e) {
+      sayOne(e, ['Vi badar!', 'Hoppa i!', 'Pool!']);
+      // de som går omkring flyttar ur vägen
+      for (var i = 0; i < count; i++) {
+        var f = figs[i];
+        if (free(f) && (blocked(f.x, f.y) || blocked(f.gx, f.gy))) { setAct(f, 'walk'); newGoal(f); }
+      }
+    },
+    update: function (e, dt) {
+      if (Math.random() < 0.35 * dt) sayOne(e, ['Vattnet är varmt!', 'Kolla, jag kan simma!', 'Plask plask!', 'Kom i!', 'Vi är fiskar!']);
+      // stänka på en kompis
+      if (Math.random() < 0.25 * dt) {
+        var m = members(e).filter(function (g) { return g.a === 'swim'; });
+        if (m.length > 1) {
+          var a = pick(m), b = nearest(a, m.filter(function (g) { return g !== a; }));
+          a.face = b.x > a.x ? 1 : -1;
+          for (var i = 0; i < 10; i++) {
+            var T = 0.45, x0 = a.x + a.face * a.L * 0.15, y0 = a.y - a.L * 0.36;
+            emit('drop', x0, y0, (b.hx - x0) / T + rand(-40, 40) * scale,
+              (b.hy - y0) / T - 0.5 * DROP_G * scale * T + rand(-60, 60) * scale, T, a.L * 0.016, '#74c0fc');
+          }
+          say(a, pick(['Plask!', 'Ta det här!']), 1.2);
+          say(b, pick(['Hihi, sluta!', 'Iiih!', 'Plask tillbaka!']), 1.4);
+        }
+      }
+    },
+    leave: function (f) { setAct(f, f.inWater ? 'climbout' : 'walk'); },
+    draw: function (ctx, e, a) {
+      var L = baseL, b = L * 0.12;
+      ctx.globalAlpha = a;
+      ctx.lineWidth = Math.max(1, L * 0.012);
+      ctx.strokeStyle = INK;
+      roundRect(ctx, e.x0 - b, e.y0 - b * 0.6, e.x1 - e.x0 + b * 2, e.y1 - e.y0 + b * 1.2, b * 0.6);
+      ctx.fillStyle = '#ddc39c';
+      ctx.fill();
+      ctx.stroke();
+      roundRect(ctx, e.x0, e.y0, e.x1 - e.x0, e.y1 - e.y0, b * 0.3);
+      ctx.fillStyle = '#7fd3f2';
+      ctx.fill();
+      ctx.stroke();
+      // vågor
+      ctx.save();
+      ctx.clip();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.lineWidth = Math.max(1, L * 0.01);
+      ctx.beginPath();
+      for (var y = e.y0 + L * 0.12; y < e.y1; y += L * 0.18) {
+        for (var x = e.x0 - L * 0.2 + ((clock * 20 * scale + y) % (L * 0.4)); x < e.x1; x += L * 0.4) {
+          ctx.moveTo(x, y);
+          ctx.quadraticCurveTo(x + L * 0.05, y - L * 0.03, x + L * 0.1, y);
+          ctx.quadraticCurveTo(x + L * 0.15, y + L * 0.03, x + L * 0.2, y);
+        }
+      }
+      ctx.stroke();
+      ctx.restore();
+      // badring som flyter
+      ctx.lineWidth = L * 0.04;
+      ctx.strokeStyle = '#ff8fab';
+      ctx.beginPath();
+      ctx.ellipse(e.x1 - L * 0.4, e.y0 + L * 0.35 + Math.sin(clock * 2) * L * 0.02, L * 0.16, L * 0.05, 0, 0, TWO_PI);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  };
+
+  EV.sleepover = {
+    act: 'pillowfight',
+    setup: function (e) {
+      var x = clamp(rand(xMin, xMax), xMin + baseL * 1.2, xMax - baseL * 1.2);
+      var y = rand(lerp(yTop, yBot, 0.35), lerp(yTop, yBot, 0.75));
+      e.dur = 20;
+      e.x = x; e.y = y;
+      e.spots = [[x - baseL * 0.32, y + baseL * 0.1, 1], [x + baseL * 0.32, y + baseL * 0.1, -1]];
+      e.beds = [[x + baseL * 0.15, y, 1], [x + baseL * 0.25, y + baseL * 0.3, 1]];
+      e.members.sort(function (a, b) { return a.look.name === 'Ida' ? -1 : 1; });
+    },
+    start: function (e) { say(e.members[0], 'Kuddkrig!', 1.6); },
+    update: function (e, dt, t) {
+      var ida = e.members[0], vienna = e.members[1], i;
+      if (e.k === 0 && t > 1.5) { e.k = 1; say(vienna, pick(['Hihi, ta den här!', 'Pang!']), 1.4); }
+      if (e.k === 1 && t > 5) {
+        e.k = 2;
+        say(ida, 'Nu måste vi sova!', 1.6);
+        for (i = 0; i < 2; i++) if (e.members[i].a === 'pillowfight') setAct(e.members[i], 'tobed');
+      }
+      if (e.k === 2 && t > 7.5) { e.k = 3; say(ida, 'Godnatt, Vienna!', 1.8); }
+      if (e.k === 3 && t > 9) { e.k = 4; say(vienna, 'Godnatt, Ida!', 1.8); }
+      if (e.k === 4 && t > 10.5) { e.k = 5; say(ida, 'Hihihi...', 1.4); }
+      if (e.k === 5 && t > 11.8) { e.k = 6; say(vienna, 'Shhh! Sov nu!', 1.6); e.asleep = true; }
+      if (e.k === 6 && t > 18.3) {
+        e.k = 7;
+        e.asleep = false;
+        say(ida, 'God morgon!', 1.6);
+        say(vienna, 'Vad roligt att sova över!', 1.8);
+      }
+    },
+    leave: function (f) { f.bag = null; setAct(f, 'walk'); },
+    draw: function (ctx, e, a) {
+      // madrass, kuddar och en måne med stjärnor när de sover
+      var L = depthL(e.y), i;
+      ctx.globalAlpha = a;
+      ctx.lineWidth = Math.max(1, L * 0.012);
+      ctx.strokeStyle = INK;
+      roundRect(ctx, e.x - L * 0.5, e.y - L * 0.12, L * 1.3, L * 0.55, L * 0.08);
+      ctx.fillStyle = '#e7f0fb';
+      ctx.fill();
+      ctx.stroke();
+      if (e.k >= 2) {
+        for (i = 0; i < 2; i++) {
+          var b = e.beds[i];
+          roundRect(ctx, b[0] - L * 0.62, b[1] - L * 0.13, L * 0.24, L * 0.12, L * 0.05);
+          ctx.fillStyle = '#fff';
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
+      if (e.k >= 3 && e.k < 7) {
+        var mx = e.x + L * 0.2, my = e.y - L * 1.1;
+        ctx.globalAlpha = a * 0.9;
+        ctx.fillStyle = '#ffe066';
+        ctx.beginPath();
+        ctx.arc(mx, my, L * 0.12, 0, TWO_PI);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(mx + L * 0.06, my - L * 0.04, L * 0.11, 0, TWO_PI);
+        ctx.fill();
+        ctx.fillStyle = '#ffe066';
+        ctx.strokeStyle = INK;
+        for (i = 0; i < 4; i++) {
+          var tw = 0.75 + 0.25 * Math.sin(clock * 3 + i * 2);
+          star(ctx, e.x - L * 0.5 + i * L * 0.4, my + (i % 2 ? L * 0.15 : -L * 0.05), L * 0.04 * tw);
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+  };
+
+  EV.socks = {
+    act: 'sockrun',
+    setup: function (e) {
+      e.dur = 14;
+      for (var i = 0; i < e.members.length; i++) { e.members[i].sockT = 1; e.members[i].dirt = 0; }
+    },
+    start: function (e) {
+      say(e.members[0], 'Vi springer ut i bara strumporna!', 2.2);
+      for (var i = 1; i < e.members.length; i++) say(e.members[i], pick(['Jaaa!', 'Kom igen!', 'Wiii!']), 1.6);
+    },
+    update: function (e, dt, t) {
+      if (t > 7 && !e.k) { e.k = 1; sayOne(e, ['Strumporna blir smutsiga!', 'Hihi, det är blött i gräset!']); }
+    },
+    leave: function (f, e) {
+      f.sockT = 0;
+      setAct(f, 'walk');
+      if (f === e.members[0]) say(f, pick(['Oj, vad smutsiga strumporna blev!', 'Hoppsan, bruna strumpor!']), 2.2);
+    },
+    draw: function () {}
+  };
+
+  // ---------------------------------------------------------------- hjälp för ritning och stänk
+  function mix(a, b, u) {
+    var x = parseInt(a.slice(1), 16), y = parseInt(b.slice(1), 16);
+    var r = Math.round(lerp(x >> 16, y >> 16, u)), g = Math.round(lerp((x >> 8) & 255, (y >> 8) & 255, u));
+    var bl = Math.round(lerp(x & 255, y & 255, u));
+    return 'rgb(' + r + ',' + g + ',' + bl + ')';
+  }
+
+  function splash(x, y, s, n) {
+    for (var i = 0; i < n; i++) {
+      emit('drop', x + rand(-1, 1) * s, y, rand(-1, 1) * 160 * scale, -rand(150, 420) * scale,
+        rand(0.3, 0.6), Math.max(1.5, s * 0.12), '#74c0fc');
+    }
+  }
+
+  function drawWaterline(ctx, f, wl) {
+    ctx.lineWidth = Math.max(1, f.L * 0.012);
+    if (f.look.name === 'Nils') {
+      // Nils har badring
+      ctx.lineWidth = f.L * 0.06;
+      ctx.strokeStyle = '#ffa94d';
+      ctx.beginPath();
+      ctx.ellipse(f.x, wl, f.L * 0.17, f.L * 0.05, 0, 0, TWO_PI);
+      ctx.stroke();
+      ctx.lineWidth = Math.max(1, f.L * 0.012);
+    }
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.beginPath();
+    ctx.ellipse(f.x, wl, f.L * 0.2, f.L * 0.035, 0, 0, TWO_PI);
+    ctx.stroke();
+  }
+
+  function drawSpider(ctx, x, y, s) {
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = Math.max(1, s * 0.15);
+    ctx.beginPath();
+    for (var i = 0; i < 4; i++) {
+      var w = Math.sin(clock * 12 + i) * 0.2;
+      for (var k = -1; k <= 1; k += 2) {
+        ctx.moveTo(x, y);
+        ctx.quadraticCurveTo(x + k * s * 0.9, y - s * (0.5 - i * 0.25 + w), x + k * s * 1.3, y + s * (0.2 + i * 0.15));
+      }
+    }
+    ctx.stroke();
+    ctx.fillStyle = INK;
+    ctx.beginPath();
+    ctx.ellipse(x, y, s * 0.55, s * 0.45, 0, 0, TWO_PI);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(x - s * 0.18, y - s * 0.15, s * 0.12, 0, TWO_PI);
+    ctx.arc(x + s * 0.18, y - s * 0.15, s * 0.12, 0, TWO_PI);
+    ctx.fill();
+  }
+
   // ---------------------------------------------------------------- skelett
   function chain(o, x, y, a1, a2, l1, l2) {
     o[0] = x + Math.sin(a1) * l1;
@@ -1065,7 +2011,7 @@
     m = Math.max(m, j.lb[0] * k + j.lb[1] * c, j.lb[2] * k + j.lb[3] * c + 0.015);
     m = Math.max(m, j.af[2] * k + j.af[3] * c, j.ab[2] * k + j.ab[3] * c);
     if (Math.abs(s) > 0.5) m = Math.max(m, j.hx * k + j.hy * c + R * 0.9);
-    f.gOff = -m;
+    f.gOff = p.free ? -p.free : -m;
 
     var w = toWorld(f, j.hx, j.hy, f.tmp);
     f.hx = w[0]; f.hy = w[1]; f.hr = R * f.L;
@@ -1096,6 +2042,7 @@
     if (f.textT > 0) f.textT -= dt;
     if (f.starsT > 0) f.starsT -= dt;
     if (f.beard > 0) f.beard -= dt;
+    if (f.ketchup > 0) f.ketchup -= dt;
     if (f.wetT > 0) {
       f.wetT -= dt;
       if (Math.random() < 5 * dt) {
@@ -1125,6 +2072,7 @@
       q.t += dt;
       if (q.t >= q.life) {
         if (q.type === 'bubble') emit('ripple', q.x, q.y, 0, 0, 0.25, q.s, 'rgba(120, 180, 235,');
+        if (q.type === 'wb') splash(q.x, q.y, q.s * 1.2, 16);
         parts[i] = parts[parts.length - 1];
         parts.pop();
         continue;
@@ -1144,6 +2092,20 @@
           q.x += (q.vx + Math.sin(q.t * 6 + q.r) * 40 * scale) * dt;
           q.y += q.vy * dt;
           q.r += q.w * dt;
+          break;
+        case 'feather':
+          q.vy += g * 0.15 * dt;
+          q.vy *= 1 - 2 * dt;
+          q.x += (q.vx + Math.sin(q.t * 5 + q.r) * 50 * scale) * dt;
+          q.vx *= 1 - 2 * dt;
+          q.y += q.vy * dt;
+          q.r += q.w * 0.3 * dt;
+          break;
+        case 'wb':
+          q.vy += DROP_G * scale * 0.6 * dt;
+          q.x += q.vx * dt;
+          q.y += q.vy * dt;
+          q.r += 8 * dt;
           break;
         case 'shred':
         case 'peel':
@@ -1181,6 +2143,7 @@
     dt *= settings.speed;
     clock += dt;
     for (var i = 0; i < count; i++) updateFig(figs[i], dt);
+    updateEvent(dt);
     updateParts(dt);
   }
 
@@ -1193,11 +2156,14 @@
     g.stroke();
   }
 
-  function shoe(g, o, k) {
+  // Sko, bar fot eller (i strumplöpningen) strumpa som blir smutsigare.
+  function shoe(g, o, f) {
+    var k = f.look, sock = f.sockT > 0;
+    if (sock) cloth(g, [o[2], o[3] - 0.005, lerp(o[2], o[0], 0.25), lerp(o[3], o[1], 0.25)], 0.03, mix('#ffffff', '#8a6a48', f.dirt));
     g.beginPath();
-    if (k.barefoot) g.ellipse(o[2] + 0.02, o[3] - 0.006, 0.038, 0.017, 0, 0, TWO_PI);
+    if (k.barefoot && !sock) g.ellipse(o[2] + 0.02, o[3] - 0.006, 0.038, 0.017, 0, 0, TWO_PI);
     else g.ellipse(o[2] + 0.025, o[3] - 0.004, 0.05, 0.024, 0, 0, TWO_PI);
-    g.fillStyle = k.barefoot ? k.skin : k.shoes;
+    g.fillStyle = sock ? mix('#ffffff', '#8a6a48', f.dirt) : k.barefoot ? k.skin : k.shoes;
     g.fill();
     g.lineWidth = 0.012;
     g.stroke();
@@ -1269,7 +2235,7 @@
     if (k.bottom === 'jeans' || k.bottom === 'pants') {
       cloth(g, [0, -0.01, o[0], o[1], lerp(o[0], o[2], 0.82), lerp(o[1], o[3], 0.82)], 0.06, k.cloth);
     }
-    shoe(g, o, k);
+    shoe(g, o, f);
   }
 
   // Arm med ärm: kort ärm en bit ner på överarmen, lång ärm nästan till handen.
@@ -1368,6 +2334,53 @@
         g.fill();
         g.stroke();
         break;
+      case 'cone':
+        // strut med en kula som blir mindre
+        g.beginPath();
+        g.moveTo(hx - 0.03, hy - 0.02);
+        g.lineTo(hx + 0.03, hy - 0.02);
+        g.lineTo(hx, hy + 0.08);
+        g.closePath();
+        g.fillStyle = '#e0a458';
+        g.fill();
+        g.stroke();
+        g.beginPath();
+        g.arc(hx, hy - 0.035, 0.04 * f.scoop, 0, TWO_PI);
+        g.fillStyle = f.flavor;
+        g.fill();
+        g.stroke();
+        break;
+      case 'burger': {
+        var k = 1 - f.bites * 0.13, bw = 0.06 * k, bx = hx + 0.02;
+        var layers = [['#d9a05b', 0.018], ['#5b8c32', 0.008], ['#7a4524', 0.02], ['#ffd43b', 0.008], ['#e9b26b', 0.025]];
+        var y = hy + 0.025;
+        for (var i = 0; i < layers.length; i++) {
+          var h = layers[i][1];
+          roundRect(g, bx - bw, y - h, bw * 2, h, Math.min(h / 2, i === 4 ? h : 0.004));
+          g.fillStyle = layers[i][0];
+          g.fill();
+          g.stroke();
+          y -= h;
+        }
+        break;
+      }
+      case 'pillow':
+        g.save();
+        g.translate(hx, hy);
+        g.rotate(0.4);
+        roundRect(g, -0.02, -0.11, 0.09, 0.13, 0.03);
+        g.fillStyle = '#fff';
+        g.fill();
+        g.stroke();
+        g.restore();
+        break;
+      case 'wb':
+        g.beginPath();
+        g.ellipse(hx, hy - 0.03, 0.045, 0.04, 0, 0, TWO_PI);
+        g.fillStyle = f.col;
+        g.fill();
+        g.stroke();
+        break;
       case 'marker':
         g.beginPath();
         g.moveTo(hx - 0.01, hy - 0.03);
@@ -1462,6 +2475,24 @@
       hand(g, j.af, k.skin);
     }
     if (p.item) drawItem(g, f);
+    if (f.bag) {
+      // sovsäck över kroppen, huvudet sticker upp
+      g.lineWidth = 0.012;
+      roundRect(g, -0.12, -0.24, 0.24, 0.7, 0.09);
+      g.fillStyle = f.bag;
+      g.fill();
+      g.stroke();
+      g.beginPath();
+      g.moveTo(-0.12, -0.13);
+      g.quadraticCurveTo(0, -0.1, 0.12, -0.13);
+      g.stroke();
+      g.save();
+      g.translate(j.hx, j.hy);
+      g.rotate(j.ht);
+      g.scale(R, R);
+      drawHead(g, f, p.expr);
+      g.restore();
+    }
     g.restore();
   }
 
@@ -1506,6 +2537,15 @@
 
     mouth(g, k, ex);
     if (f.beard > 0 && f.beardKind === 0) mustache(g);
+    if (f.ketchup > 0) {
+      g.fillStyle = '#d63031';
+      g.beginPath();
+      g.ellipse(0.42, 0.5, 0.13, 0.07, 0.4, 0, TWO_PI);
+      g.fill();
+      g.beginPath();
+      g.ellipse(-0.3, 0.68, 0.08, 0.05, 0, 0, TWO_PI);
+      g.fill();
+    }
     g.lineWidth = 0.15;
     hairFront(g, k);
     if (k.earring) {
@@ -1864,6 +2904,19 @@
       ctx.globalAlpha = Math.min(1, (pr.life - pr.t) * 2);
       if (pr.type === 'peel') {
         drawPeel(ctx, pr.x, pr.y - pr.L * 0.01, pr.L * 0.1, pr.rot, 0.55);
+      } else if (pr.type === 'print') {
+        ctx.globalAlpha *= pr.a * 0.6;
+        ctx.fillStyle = '#7a5a3a';
+        ctx.beginPath();
+        ctx.ellipse(pr.x, pr.y, pr.L * 0.035, pr.L * 0.012, 0, 0, TWO_PI);
+        ctx.fill();
+      } else if (pr.type === 'splat') {
+        ctx.fillStyle = pr.col;
+        ctx.beginPath();
+        ctx.ellipse(pr.x, pr.y, pr.L * 0.06, pr.L * 0.02, 0, 0, TWO_PI);
+        ctx.fill();
+      } else if (pr.type === 'spider') {
+        drawSpider(ctx, pr.x, pr.y - pr.L * 0.03, pr.L * 0.05);
       } else {
         var rx = pr.L * (pr.squash ? 0.15 : 0.13), ry = pr.L * (pr.squash ? 0.025 : 0.045);
         ctx.lineWidth = Math.max(1, pr.L * 0.012);
@@ -2071,6 +3124,7 @@
     ctx.beginPath();
     for (i = 0; i < count; i++) {
       f = sorted[i];
+      if (f.inWater) continue;
       var k = 1 / (1 + f.z / f.L), lie = Math.abs(Math.sin(f.p.rot));
       var rx = f.L * (0.17 + 0.3 * lie) * k, ry = f.L * 0.04 * k;
       var cx = f.x + f.face * Math.sin(f.p.rot) * f.L * 0.2;
@@ -2079,8 +3133,22 @@
     }
     ctx.fill();
 
+    if (event) EV[event.type].draw(ctx, event, Math.min(event.fade, event.t * 2));
     drawProps(ctx);
-    for (i = 0; i < count; i++) drawFig(ctx, sorted[i]);
+    for (i = 0; i < count; i++) {
+      f = sorted[i];
+      if (!f.inWater) { drawFig(ctx, f); continue; }
+      // badande: bara det som är ovanför vattenytan syns
+      var wl = f.y - f.L * 0.36;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, W, wl);
+      ctx.clip();
+      drawFig(ctx, f);
+      ctx.restore();
+      drawWaterline(ctx, f, wl);
+    }
+    if (event && EV[event.type].drawFront) EV[event.type].drawFront(ctx, event, Math.min(event.fade, event.t * 2));
     drawParts(ctx);
     for (i = 0; i < count; i++) if (sorted[i].starsT > 0) drawStars(ctx, sorted[i]);
     drawBubbles(ctx);
@@ -2097,10 +3165,13 @@
   }
 
   function scatter() {
+    event = null;
     for (var i = 0; i < count; i++) {
-      release(figs[i]);
-      figs[i].by = null;
-      place(figs[i]);
+      var f = figs[i];
+      release(f);
+      f.by = null;
+      f.ev = null; f.inWater = false; f.bag = null; f.sockT = 0;
+      place(f);
     }
   }
 
@@ -2135,6 +3206,6 @@
     scatter: scatter,
     update: update,
     draw: draw,
-    release: function () { figs = []; count = 0; parts = []; pops = []; props = []; }
+    release: function () { figs = []; count = 0; parts = []; pops = []; props = []; event = null; }
   });
 })();

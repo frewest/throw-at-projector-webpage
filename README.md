@@ -6,7 +6,8 @@ Lägen: **Myror**, **Stitch** (Stitch, Angel, Reuben, Lilo, Jumba och
 Pleakley som springer omkring, hoppar och jagar varandra), **Jordbruk**
 (traktorer med redskap och skördetröskor som kör i raka rader och lämnar
 spår, och en balgrip som hämtar rundbalarna) och **Kids** (Ida, Althea, Vienna och
-Nils som streckgubbar som hittar på bus med varandra).
+Nils som streckgubbar som hittar på bus med varandra, och ibland äter glass,
+badar, äter hamburgare, springer i strumporna eller sover över tillsammans).
 Sidan körs på Chromecasten som Custom Web Receiver och hostas med GitHub Pages.
 
 **Adress:** <https://frewest.github.io/throw-at-projector-webpage/>
@@ -44,7 +45,7 @@ python3 -m http.server 8000
 | `size`  | 1   | Storleksfaktor (myror 0.3–4, Stitch 0.4–2.5, jordbruk 0.5–2.5, kids 0.4–2.5) |
 | `debug` | 0   | `1` = visa fps |
 | `res`   | 1   | Andel av full upplösning, t.ex. `0.75` |
-| `bus`   | –   | Kids: välj ett bus som görs om och om igen, t.ex. `balloon`, `boo`, `banana` (se överst i `kids.js`) |
+| `bus`   | –   | Kids: välj ett bus som görs om och om igen, t.ex. `balloon`, `boo`, `fart`, eller en gemensam stund som `pool` (se överst i `kids.js`) |
 
 Tangentbord: ↑/↓ antal, →/← hastighet, `+`/`-` storlek, `d` fps,
 `m` nästa läge, `1`–`9` välj läge. På mobil: dubbeltryck visar fps,
