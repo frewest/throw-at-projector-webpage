@@ -7,7 +7,8 @@ Pleakley som springer omkring, hoppar och jagar varandra), **Jordbruk**
 (traktorer med redskap och skördetröskor som kör i raka rader och lämnar
 spår, och en balgrip som hämtar rundbalarna) och **Kids** (Ida, Althea, Vienna och
 Nils som streckgubbar som hittar på bus med varandra, och ibland äter glass,
-badar, äter hamburgare, springer i strumporna eller sover över tillsammans).
+badar, äter hamburgare, leker kurragömma, springer i strumporna eller sover
+över tillsammans).
 Sidan körs på Chromecasten som Custom Web Receiver och hostas med GitHub Pages.
 
 **Adress:** <https://frewest.github.io/throw-at-projector-webpage/>

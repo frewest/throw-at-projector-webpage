@@ -20,7 +20,8 @@
  * vattenballong och kull.
  * Gemensamt ibland: alla äter glass på en bänk (någon tappar glassen),
  * badar i en pool, äter hamburgare på en filt (ketchup och en rap), springer
- * ute i bara strumporna, och Ida och Vienna sover över (kuddkrig först).
+ * ute i bara strumporna, leker kurragömma, och Ida och Vienna sover över
+ * (kuddkrig först).
  *
  * Vinklar: 0 = rakt ner, positivt = framåt (åt det håll figuren tittar),
  * PI = rakt upp. Allt i figurhöjder med höften i origo.
@@ -28,7 +29,7 @@
  * tittut, tongue, balloon, bubbles, cartwheel, spin, knock, dance, confetti,
  * wave, banana, boo, tickle, squirt, leapfrog, cushion, mustache, sleep,
  * fart, sneeze, spider, waterballoon, tag – eller en gemensam stund:
- * icecream, pool, burger, sleepover, socks.
+ * icecream, pool, burger, sleepover, socks, hide.
  */
 (function () {
   'use strict';
@@ -1220,7 +1221,7 @@
   // sedan börjar själva stunden (main) och till sist bleknar sakerna bort.
   var event = null;
   var eventCool = rand(15, 25);
-  var EVENTS = ['icecream', 'pool', 'burger', 'sleepover', 'socks'];
+  var EVENTS = ['icecream', 'pool', 'burger', 'sleepover', 'socks', 'hide'];
 
   function byName(n) {
     for (var i = 0; i < count; i++) if (figs[i].look.name === n) return figs[i];
@@ -1266,13 +1267,18 @@
     return true;
   }
 
+  function mainAct(f, e) {
+    var a = EV[e.type].act;
+    return typeof a === 'function' ? a(f, e) : a;
+  }
+
   function beginMain(e) {
     var D = EV[e.type];
     e.main = true;
     e.t0 = e.t;
     for (var i = 0; i < e.members.length; i++) {
       var f = e.members[i];
-      if (f.a === 'evwait' || !e.spots.length) setAct(f, D.act);
+      if (f.a === 'evwait' || !e.spots.length) setAct(f, mainAct(f, e));
     }
     if (D.start) D.start(e);
   }
@@ -1352,7 +1358,7 @@
       if (!e || e !== event || e.ending) return setAct(f, 'walk');
       var s = e.spots[f.spot];
       f.x = s[0]; f.y = s[1]; f.face = s[2];
-      setAct(f, e.main ? EV[e.type].act : 'evwait');
+      setAct(f, e.main ? mainAct(f, e) : 'evwait');
     },
     pose: function (f, p) { walkPose(p, f.phase, 1.1); }
   };
@@ -1868,6 +1874,282 @@
         for (i = 0; i < 4; i++) {
           var tw = 0.75 + 0.25 * Math.sin(clock * 3 + i * 2);
           star(ctx, e.x - L * 0.5 + i * L * 0.4, my + (i % 2 ? L * 0.15 : -L * 0.05), L * 0.04 * tw);
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+  };
+
+  // ---- kurragömma
+  // En räknar vid trädet (boet), de andra gömmer sig bakom buskar och
+  // kartonger. Den som letar går till gömställena ett i taget; ibland smiter
+  // någon tillbaka till boet: "Ett, två, tre för mig!"
+  var COUNT = ['Ett...', 'Två...', 'Tre...', 'Fyra...', 'Fem...', 'Sex...', 'Sju...', 'Åtta...', 'Nio...', 'Tio!'];
+
+  function hideEv(f) { return f.ev && f.ev === event && !event.ending ? f.ev : null; }
+
+  function homeSpot(e) {
+    var k = e.home++;
+    return [clamp(e.base[0] - e.dir * baseL * (0.7 + 0.45 * k), xMin, xMax), e.base[1] + (k % 2) * baseL * 0.15];
+  }
+
+  ACT.seekcount = {
+    dur: 6,
+    start: function (f) { f.face = hideEv(f) ? hideEv(f).dir : f.face; },
+    update: function (f) {
+      var n = Math.floor(f.t / 0.5);
+      if (n < COUNT.length && n >= f.k1) { f.k1 = n + 1; say(f, COUNT[n], 0.6); }
+      if (f.t > 5.2 && !f.k2) { f.k2 = 1; say(f, 'Nu kommer jag!', 1.4); }
+    },
+    end: function (f) { setAct(f, hideEv(f) ? 'seek' : 'walk'); },
+    pose: function (f, p) {
+      if (f.t < 5.2) {
+        p.hf = ['h', 0.4, -0.05]; p.hb = ['h', -0.4, -0.05]; p.front = true;
+        p.lean = 0.2;
+        p.expr = 'smile';
+      } else {
+        p.af1 = 2.4; p.ab1 = -2.4;
+      }
+    }
+  };
+
+  ACT.hiderun = {
+    dur: 8,
+    start: function (f) {
+      if (Math.random() < 0.5) say(f, pick(['Spring!', 'Hihi, göm dig!', 'Jag vet ett bra ställe!']), 1.2);
+    },
+    update: function (f, dt) {
+      var e = hideEv(f);
+      if (!e) return setAct(f, 'walk');
+      var pl = f.place;
+      if (moveTo(f, pl.x, pl.y - baseL * 0.04, WALK * baseL * 1.7 * f.look.h, dt)) ACT.hiderun.end(f);
+    },
+    end: function (f) {
+      if (!hideEv(f)) return setAct(f, 'walk');
+      f.x = f.place.x; f.y = f.place.y - baseL * 0.04;
+      setAct(f, 'hidden');
+      f.emit = rand(2, 4);
+    },
+    pose: function (f, p) { walkPose(p, f.phase, 1.35); p.lean = 0.2; p.expr = 'laugh'; }
+  };
+
+  ACT.hidden = {
+    dur: 1e9,
+    update: function (f, dt) {
+      if (!hideEv(f)) return setAct(f, 'walk');
+      // tittar fram ibland (Nils oftast)
+      f.emit -= dt;
+      if (f.k2 > 0) f.k2 -= dt;
+      if (f.emit <= 0) {
+        f.emit = f.look.name === 'Nils' ? rand(2, 3.5) : rand(4, 7);
+        f.k2 = 0.8;
+        if (Math.random() < 0.4) say(f, pick(['Hihi...', 'Shhh!', 'Hi hi hi']), 0.9);
+      }
+    },
+    pose: function (f, p) {
+      if (f.k2 > 0) {
+        p.lf1 = 0.45; p.lf2 = -0.9; p.lb1 = 0.35; p.lb2 = -0.8;
+        p.lean = 0.1;
+        p.expr = 'laugh';
+      } else {
+        p.lf1 = 0.95; p.lf2 = -1.9; p.lb1 = 0.8; p.lb2 = -1.75;
+        p.lean = 0.55; p.tilt = -0.3;
+        p.hf = ['b', 0.2, 0.1]; p.hb = ['b', 0.16, 0.12];
+        p.expr = 'sneaky';
+      }
+    }
+  };
+
+  ACT.seek = {
+    dur: 1e9,
+    update: function (f, dt) {
+      var e = hideEv(f), i, pl = null, bd = 1e18;
+      if (!e) return setAct(f, 'walk');
+      if (f.k2 > 0) { f.k2 -= dt; return; }        // står still och tittar
+      if (!f.place || f.place.checked) {
+        for (i = 0; i < e.places.length; i++) {
+          var q = e.places[i], d = (q.x - f.x) * (q.x - f.x) + (q.y - f.y) * (q.y - f.y);
+          if (!q.checked && d < bd) { bd = d; pl = q; }
+        }
+        f.place = pl;
+        if (!pl) {
+          // alla gömställen är kollade: tillbaka till boet
+          if (moveTo(f, e.base[0], e.base[1], WALK * baseL * 1.1, dt) && !e.done) {
+            e.done = true;
+            say(f, e.free ? 'Nästa gång tar jag er!' : 'Alla hittade!', 2);
+          }
+          return;
+        }
+        if (Math.random() < 0.4) say(f, pick(['Var är ni?', 'Jag kommer!', 'Hmm...']), 1.2);
+      }
+      pl = f.place;
+      var side = f.x < pl.x ? -1 : 1;
+      if (moveTo(f, clamp(pl.x + side * baseL * 0.6, xMin, xMax), pl.y + 2, WALK * baseL * 1.05, dt)) {
+        pl.checked = true;
+        f.face = -side;
+        f.k2 = 0.9;
+        var h = pl.who;
+        if (h && h.a === 'hidden' && hideEv(h)) {
+          pop('Hittad!', pl.x, pl.y - baseL * 0.9, baseL * 0.2, '#69db7c');
+          say(f, 'Hittade dig, ' + h.look.name + '!', 1.6);
+          setAct(h, 'found');
+        } else {
+          say(f, pick(['Inte här...', 'Ingen här!', 'Hmm, tomt.']), 1.2);
+        }
+      }
+    },
+    pose: function (f, p) {
+      if (f.k2 > 0) { p.tilt = Math.sin(clock * 4) * 0.25; p.expr = 'o'; return; }
+      walkPose(p, f.phase, 1);
+      p.tilt = Math.sin(clock * 3) * 0.2;
+      p.expr = 'sneaky';
+    }
+  };
+
+  ACT.found = {
+    dur: 1e9,
+    start: function (f) {
+      hop(f, 0.6);
+      say(f, pick(['Åh nej!', 'Du hittade mig!', 'Hihi, här var jag!']), 1.6);
+    },
+    update: function (f, dt) {
+      var e = hideEv(f);
+      if (!e) return setAct(f, 'walk');
+      if (f.t < 1) return;
+      if (!f.home) f.home = homeSpot(e);
+      if (moveTo(f, f.home[0], f.home[1], WALK * baseL * 1.1, dt)) setAct(f, 'athome');
+    },
+    pose: function (f, p) {
+      if (f.t < 1) { armsUp(p); p.expr = 'laugh'; } else walkPose(p, f.phase, 1);
+    }
+  };
+
+  ACT.runhome = {
+    dur: 1e9,
+    start: function (f) { say(f, pick(['Nu springer jag!', 'Hihi!']), 1); },
+    update: function (f, dt) {
+      var e = hideEv(f);
+      if (!e) return setAct(f, 'walk');
+      if (!f.home) f.home = homeSpot(e);
+      if (moveTo(f, f.home[0], f.home[1], WALK * baseL * 1.9 * f.look.h, dt)) {
+        e.free = true;
+        f.place.checked = true;
+        pop('Ett, två, tre för mig!', f.x, f.y - f.L * 1.3, baseL * 0.16, '#ffd43b');
+        setAct(f, 'athome');
+      }
+    },
+    pose: function (f, p) { walkPose(p, f.phase, 1.4); p.lean = 0.22; p.expr = 'laugh'; }
+  };
+
+  ACT.athome = {
+    dur: 1e9,
+    update: function (f) { if (!hideEv(f)) setAct(f, 'walk'); },
+    pose: function (f, p) {
+      idlePose(f, p);
+      if (Math.sin(clock * 2 + f.i * 2) > 0.85) { armsUp(p); p.expr = 'laugh'; }
+    }
+  };
+
+  EV.hide = {
+    act: function (f, e) {
+      if (f === e.seeker) return 'seekcount';
+      f.home = null;
+      return 'hiderun';
+    },
+    setup: function (e) {
+      var m = e.members, i, k, x, y;
+      e.seeker = m[0];
+      e.dir = Math.random() < 0.5 ? 1 : -1;
+      e.base = [clamp(m[0].x, xMin + baseL * 2, xMax - baseL * 2), clamp(m[0].y, yTop + baseL * 0.3, yBot)];
+      e.tree = [e.base[0] + e.dir * baseL * 0.28, e.base[1] - 3];
+      e.home = 0;
+      e.dur = 70;
+      e.places = [];
+      // gömställen långt från boet och från varandra (ett extra som är tomt)
+      for (i = 0; i < m.length; i++) {
+        for (k = 0; k < 40; k++) {
+          x = rand(xMin + baseL * 0.5, xMax - baseL * 0.5);
+          y = rand(lerp(yTop, yBot, 0.25), yBot - baseL * 0.05);
+          var ok2 = Math.abs(x - e.base[0]) > baseL * 1.8;
+          for (var j = 0; j < e.places.length && ok2; j++) {
+            if (Math.abs(x - e.places[j].x) < baseL * 1.3 && Math.abs(y - e.places[j].y) < baseL * 0.6) ok2 = false;
+          }
+          if (ok2) break;
+        }
+        e.places.push({ x: x, y: y, kind: i % 2 ? 'box' : 'bush', who: null, checked: false });
+      }
+      shuffle(e.places);
+      for (i = 1; i < m.length; i++) { e.places[i - 1].who = m[i]; m[i].place = e.places[i - 1]; }
+      m[0].place = null;
+    },
+    start: function (e) {
+      say(e.seeker, 'Kurragömma! Jag räknar!', 1.4);
+    },
+    update: function (e, dt) {
+      var s = e.seeker;
+      if (e.done && s.k2 <= 0) return endEvent(e);
+      if (!s.alive || s.ev !== e) return endEvent(e);
+      // någon smiter hem när den som letar är långt bort
+      if (s.a === 'seek' && Math.abs(s.x - e.base[0]) > baseL * 3 && Math.random() < 0.07 * dt) {
+        var m = members(e).filter(function (f) { return f.a === 'hidden'; });
+        if (m.length) setAct(pick(m), 'runhome');
+      }
+    },
+    draw: function (ctx, e, a) {
+      // trädet vid boet
+      var L = depthL(e.base[1]), x = e.tree[0], y = e.tree[1];
+      ctx.globalAlpha = a;
+      ctx.lineWidth = Math.max(1, L * 0.012);
+      ctx.strokeStyle = INK;
+      ctx.fillStyle = '#8d6340';
+      ctx.fillRect(x - L * 0.07, y - L * 1.1, L * 0.14, L * 1.1);
+      ctx.strokeRect(x - L * 0.07, y - L * 1.1, L * 0.14, L * 1.1);
+      ctx.fillStyle = '#5fae4a';
+      var blobs = [[0, -1.45, 0.42], [-0.32, -1.2, 0.3], [0.32, -1.2, 0.3], [0, -1.12, 0.3]];
+      for (var i = 0; i < blobs.length; i++) {
+        ctx.beginPath();
+        ctx.arc(x + blobs[i][0] * L, y + blobs[i][1] * L, blobs[i][2] * L, 0, TWO_PI);
+        ctx.fill();
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    },
+    drawFront: function (ctx, e, a) {
+      ctx.globalAlpha = a;
+      ctx.strokeStyle = INK;
+      for (var i = 0; i < e.places.length; i++) {
+        var pl = e.places[i], L = depthL(pl.y), x = pl.x, y = pl.y + L * 0.03;
+        ctx.lineWidth = Math.max(1, L * 0.012);
+        if (pl.kind === 'bush') {
+          L *= 1.3;
+          ctx.fillStyle = '#69b34c';
+          var b = [[-0.3, -0.25, 0.25], [0.3, -0.25, 0.25], [0, -0.42, 0.3], [-0.12, -0.2, 0.25], [0.15, -0.18, 0.25]];
+          ctx.beginPath();
+          for (var k = 0; k < b.length; k++) {
+            ctx.moveTo(x + b[k][0] * L + b[k][2] * L, y + b[k][1] * L);
+            ctx.arc(x + b[k][0] * L, y + b[k][1] * L, b[k][2] * L, 0, TWO_PI);
+          }
+          ctx.fill();
+          ctx.stroke();
+          ctx.fill();
+          ctx.fillStyle = '#e03131';
+          for (k = 0; k < 4; k++) {
+            ctx.beginPath();
+            ctx.arc(x + (k - 1.5) * L * 0.17, y - L * (0.3 + 0.12 * (k % 2)), L * 0.025, 0, TWO_PI);
+            ctx.fill();
+          }
+        } else {
+          ctx.fillStyle = '#c8995e';
+          ctx.fillRect(x - L * 0.42, y - L * 0.68, L * 0.84, L * 0.68);
+          ctx.strokeRect(x - L * 0.42, y - L * 0.68, L * 0.84, L * 0.68);
+          ctx.beginPath();
+          ctx.moveTo(x - L * 0.42, y - L * 0.68);
+          ctx.lineTo(x - L * 0.58, y - L * 0.82);
+          ctx.moveTo(x + L * 0.42, y - L * 0.68);
+          ctx.lineTo(x + L * 0.58, y - L * 0.82);
+          ctx.moveTo(x, y - L * 0.68);
+          ctx.lineTo(x, y - L * 0.38);
+          ctx.stroke();
         }
       }
       ctx.globalAlpha = 1;
