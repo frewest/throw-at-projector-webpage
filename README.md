@@ -17,7 +17,8 @@ Sidan körs på Chromecasten som Custom Web Receiver och hostas med GitHub Pages
 
 ## GitHub Pages
 
-**Settings → Pages → Source: Deploy from a branch → Branch: `main`, `/ (root)` → Save.**
+**Settings → Pages → Build and deployment → Source: GitHub Actions.**
+Workflowen `.github/workflows/pages.yml` publicerar sedan sidan vid varje push.
 
 ## Testa lokalt
 
