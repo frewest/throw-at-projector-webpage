@@ -4,8 +4,9 @@
  * animationen direkt utan SDK.
  *
  * Kommandon (JSON):
- *   {"ants":300,"speed":1.2,"size":1,"debug":false}
+ *   {"mode":"stitch","count":10,"speed":1.2,"size":1,"debug":false}
  *   {"type":"getState"}   -> svarar avsändaren med aktuellt tillstånd
+ * mode är "ants" eller "stitch"; utan mode gäller värdena det aktiva läget.
  * Varje inställningskommando besvaras också med det nya tillståndet.
  */
 (function () {
@@ -17,7 +18,7 @@
   var params = new URLSearchParams(location.search);
   var onCast = /CrKey/.test(navigator.userAgent) || params.get('cast') === '1';
 
-  window.Ants.start();
+  window.Projector.start();
   if (!onCast) return;
 
   var script = document.createElement('script');
@@ -36,8 +37,8 @@
         try { data = JSON.parse(data); } catch (e) { return; }
       }
       var state = (data && data.type === 'getState')
-        ? window.Ants.getState()
-        : window.Ants.apply(data);
+        ? window.Projector.getState()
+        : window.Projector.apply(data);
       try {
         context.sendCustomMessage(NAMESPACE, event.senderId, state);
       } catch (e) {
